@@ -173,7 +173,7 @@ input[type="file"]{display:none}
 @media(min-width:768px){.picker-grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}}
 .picker-grid .picker-item{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;cursor:pointer}
 .picker-grid .picker-item img{width:100%;height:100%;object-fit:cover;display:block}
-.picker-grid .picker-item .check-mark{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:12px;color:transparent;background:rgba(0,0,0,.3)}
+.picker-grid .picker-item .check-mark{position:absolute;top:4px;right:4px;width:28px;height:28px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:14px;color:transparent;background:rgba(0,0,0,.3);cursor:pointer;z-index:2}
 .picker-grid .picker-item.selected .check-mark{background:#a0522d;border-color:#a0522d;color:#fff}
 .picker-grid .picker-item.selected{outline:3px solid #a0522d;outline-offset:-3px}
 
@@ -1856,12 +1856,32 @@ function renderPickerGrid(){
   for(var j=0;j<snsPostPhotos.length;j++){
     if(!snsPostPhotos[j].thumbnailLink)continue;
     var sel=d.selectedPhotoIds.has(j);
-    h+='<div class="picker-item'+(sel?' selected':'')+'" data-idx="'+j+'" onclick="showPickerDetail('+j+')">'
+    h+='<div class="picker-item'+(sel?' selected':'')+'" data-idx="'+j+'">'
       +'<img src="'+escapeAttr(snsPostPhotos[j].thumbnailLink.replace(/=s\d+/,'=s400'))+'" alt="" loading="lazy">'
-      +'<span class="check-mark">✓</span>'
+      +'<span class="check-mark" onclick="event.stopPropagation();quickToggle('+j+')">✓</span>'
       +'</div>';
   }
   grid.innerHTML=h;
+  // Attach tap=detail, but check-mark click=quick toggle
+  var items=grid.querySelectorAll('.picker-item');
+  items.forEach(function(item){
+    var idx=parseInt(item.getAttribute('data-idx'));
+    item.addEventListener('click',function(){showPickerDetail(idx);});
+  });
+  document.getElementById('picker-title').textContent=d.selectedPhotoIds.size+'枚選択中';
+}
+
+function quickToggle(photoIdx){
+  var d=snsPostData[pickerPostIdx];
+  if(d.selectedPhotoIds.has(photoIdx))d.selectedPhotoIds.delete(photoIdx);
+  else d.selectedPhotoIds.add(photoIdx);
+  // Update just the item UI without full re-render
+  var grid=document.getElementById('picker-grid');
+  var items=grid.querySelectorAll('.picker-item');
+  items.forEach(function(item){
+    var idx=parseInt(item.getAttribute('data-idx'));
+    item.classList.toggle('selected',d.selectedPhotoIds.has(idx));
+  });
   document.getElementById('picker-title').textContent=d.selectedPhotoIds.size+'枚選択中';
 }
 
