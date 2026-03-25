@@ -191,9 +191,6 @@ input[type="file"]{display:none}
 .btn-sns.ig{background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)}
 .btn-sns.dl{background:#5a3e28}
 .sns-post-menu{display:flex;gap:6px;margin-top:8px;justify-content:center;animation:fadeIn .2s ease}
-.sns-schedule-row{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.85em}
-.sns-schedule-row input[type="datetime-local"]{padding:6px 10px;border:2px solid #ece6de;border-radius:8px;font-family:inherit;font-size:.9em}
-.sns-schedule-row input[type="datetime-local"]:focus{border-color:#a0522d;outline:none}
 .sns-draft-card{background:#fff;border:1px solid #ece6de;border-radius:12px;padding:14px;margin-bottom:10px}
 .sns-draft-card .draft-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:.8em;color:#8a7e6e}
 .sns-draft-card .draft-text{font-size:.85em;color:#2c2418;line-height:1.6;white-space:pre-wrap;max-height:80px;overflow:hidden}
@@ -1572,7 +1569,7 @@ function renderSnsPosts(posts,photos){
     h+='<button class="btn-sns dl" onclick="downloadSnsPhotos('+i+')">📥</button>';
     h+='</div>';
     h+='</div>';
-    h+='<div class="sns-schedule-row"><span>📅 予約:</span><input type="datetime-local" id="sns-schedule-'+i+'"><button class="btn-text" onclick="saveDraft('+i+')">💾 下書き保存</button></div>';
+    h+='<div style="margin-top:10px;text-align:center"><button class="btn-text" onclick="saveDraft('+i+')">💾 下書き保存</button></div>';
     h+='</div>';
   }
   rc.innerHTML=h;
@@ -1626,13 +1623,11 @@ var SNS_DRAFTS_FILENAME='choreia-photos-drafts.json';
 
 async function saveDraft(idx){
   var d=snsPostData[idx];
-  var schedule=document.getElementById('sns-schedule-'+idx).value||'';
   var draft={
     text:getSnsText(idx),
     title:d.title,
     platform:d.platform,
     photoIds:Array.from(d.selectedPhotoIds).map(function(i){return snsPostPhotos[i]?snsPostPhotos[i].id:null}).filter(Boolean),
-    scheduledAt:schedule,
     savedAt:new Date().toISOString(),
     savedBy:currentUser.name
   };
@@ -1692,9 +1687,10 @@ async function loadDrafts(){
     for(var i=0;i<drafts.length;i++){
       var d=drafts[i];
       var ridx=drafts.length-1-i; // original index
-      var schedStr=d.scheduledAt?'📅 '+new Date(d.scheduledAt).toLocaleString('ja-JP'):'未予約';
+      var dateStr=d.savedAt?new Date(d.savedAt).toLocaleString('ja-JP'):'';
+      var photoCount=d.photoIds?d.photoIds.length:0;
       h+='<div class="sns-draft-card">';
-      h+='<div class="draft-header">'+platformIcon(d.platform)+'<span>'+escapeHtml(d.title||'無題')+'</span><span style="margin-left:auto">'+schedStr+'</span></div>';
+      h+='<div class="draft-header">'+platformIcon(d.platform)+'<span>'+escapeHtml(d.title||'無題')+'</span><span style="margin-left:auto">'+escapeHtml(dateStr)+(photoCount?' · 📷'+photoCount:'')+'</span></div>';
       h+='<div class="draft-text">'+escapeHtml(d.text||'')+'</div>';
       h+='<div class="draft-actions">';
       h+='<button class="btn-copy" onclick="useDraft('+ridx+')">📝 使用</button>';
@@ -1715,23 +1711,36 @@ async function deleteDraft(idx){
   }catch(e){showToast('😥 削除に失敗しました');}
 }
 
-function useDraft(idx){
-  // Switch to suggest mode and load draft as a post
-  loadDraftsData().then(function(drafts){
-    var d=drafts[idx];
-    if(!d)return;
-    setSnsMode('suggest');
-    snsPostPhotos=[];
-    snsPostData=[{text:d.text,selectedPhotoIds:new Set(),platform:d.platform,title:d.title}];
-    var rc=document.getElementById('sns-results');
-    // Render a single post card
-    var posts=[{text:d.text,title:d.title,platform:d.platform,photoNumbers:[]}];
-    renderSnsPosts(posts,[]);
-    if(d.scheduledAt){
-      setTimeout(function(){var el=document.getElementById('sns-schedule-0');if(el)el.value=d.scheduledAt;},100);
-    }
-    showToast('下書きを読み込みました');
-  });
+async function useDraft(idx){
+  var drafts=await loadDraftsData();
+  var d=drafts[idx];
+  if(!d)return;
+  setSnsMode('suggest');
+  showToast('下書きを読み込み中...');
+
+  // Restore photos from Drive by IDs
+  var photos=[];
+  var selectedIds=new Set();
+  if(d.photoIds&&d.photoIds.length){
+    try{
+      var ids=d.photoIds;
+      // Fetch photo metadata in batch
+      for(var i=0;i<ids.length;i++){
+        try{
+          var p=await apiFetch('https://www.googleapis.com/drive/v3/files/'+ids[i]+'?supportsAllDrives=true&fields=id,name,thumbnailLink,description');
+          photos.push(p);
+          selectedIds.add(photos.length-1);
+        }catch(e){}
+      }
+    }catch(e){}
+  }
+
+  snsPostPhotos=photos;
+  var nums=[];for(var i=0;i<photos.length;i++)nums.push(i+1);
+  snsPostData=[{text:d.text,selectedPhotoIds:selectedIds,platform:d.platform,title:d.title}];
+  var posts=[{text:d.text,title:d.title,platform:d.platform,photoNumbers:nums}];
+  renderSnsPosts(posts,photos);
+  showToast('下書きを読み込みました（📷'+photos.length+'枚）');
 }
 
 // ==================== Photo Picker ====================
