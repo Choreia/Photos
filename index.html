@@ -129,6 +129,23 @@ input[type="file"]{display:none}
 .photo-detail-row .value{color:#2c2418}
 .photo-detail-row a{color:#a0522d;text-decoration:none;font-weight:500}
 .photo-detail-tags{display:flex;flex-wrap:wrap;gap:6px}
+/* SNS */
+.sns-modes{display:flex;gap:6px;margin-bottom:16px}
+.sns-mode{flex:1;padding:10px;text-align:center;border:2px solid #ece6de;border-radius:10px;background:#fff;cursor:pointer;font-size:.8em;font-weight:600;color:#8a7e6e;font-family:inherit}
+.sns-mode.active{border-color:#a0522d;background:#fdf5f0;color:#a0522d}
+.sns-mode:active{transform:scale(.98)}
+.sns-input{width:100%;padding:10px 14px;border:2px solid #ece6de;border-radius:12px;font-size:.95em;font-family:inherit;background:#fff;margin-bottom:12px}
+.sns-input:focus{border-color:#a0522d;outline:none}
+.sns-folder-select{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;max-height:200px;overflow-y:auto}
+.sns-post-card{background:#fff;border:1px solid #ece6de;border-radius:14px;padding:16px;margin-bottom:12px}
+.sns-post-text{font-size:.9em;line-height:1.7;color:#2c2418;white-space:pre-wrap;margin-bottom:12px}
+.sns-post-photos{display:flex;gap:4px;overflow-x:auto;margin-bottom:12px;padding-bottom:4px}
+.sns-post-photos img{width:80px;height:80px;object-fit:cover;border-radius:8px;flex-shrink:0;cursor:pointer}
+.sns-post-actions{display:flex;gap:8px}
+.btn-copy{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#f5ece5;color:#5a3e28;border:none;border-radius:10px;font-size:.8em;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-copy:active{background:#ece6de}
+.sns-post-photos img.selected{outline:3px solid #a0522d;outline-offset:-3px}
+
 .photo-detail-map{position:relative;width:100%;height:160px;border-radius:10px;overflow:hidden;margin-top:4px;cursor:pointer}
 .photo-detail-map iframe{width:100%;height:100%;border:none;pointer-events:none}
 .photo-detail-map .map-overlay{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:flex-end;padding:6px}
@@ -292,6 +309,7 @@ input[type="file"]{display:none}
       <button class="tab active" id="tab-upload" onclick="switchTab('upload')">📤 アップロード</button>
       <button class="tab" id="tab-browse" onclick="switchTab('browse')">📁 フォルダ</button>
       <button class="tab" id="tab-search" onclick="switchTab('search')">🔍 検索</button>
+      <button class="tab" id="tab-sns" onclick="switchTab('sns')" style="display:none">📱 SNS</button>
     </div>
 
     <!-- Upload tab -->
@@ -363,6 +381,34 @@ input[type="file"]{display:none}
         <div id="search-loading" style="display:none"><div class="loading-state" style="padding:16px"><div class="spinner"></div><div>検索中...</div></div></div>
         <div id="search-results"></div>
         <div id="search-empty" style="display:none" class="loading-state">タグやキーワードで写真を横断検索できます</div>
+      </div>
+    </div>
+
+    <!-- SNS tab (admin only) -->
+    <div id="panel-sns" style="display:none">
+      <div class="card">
+        <h2>SNS投稿アシスタント</h2>
+        <div class="sns-modes">
+          <button class="sns-mode active" id="sns-mode-suggest" onclick="setSnsMode('suggest')">📸 写真から提案</button>
+          <button class="sns-mode" id="sns-mode-theme" onclick="setSnsMode('theme')">💡 テーマから作成</button>
+        </div>
+
+        <!-- Mode A: Folder → Suggest -->
+        <div id="sns-suggest-area">
+          <p style="font-size:.85em;color:#8a7e6e;margin-bottom:10px">フォルダを選ぶと、AIが投稿案を提案します</p>
+          <div id="sns-folder-list" class="sns-folder-select"></div>
+          <div id="sns-suggest-loading" style="display:none"><div class="loading-state" style="padding:16px"><div class="spinner"></div><div>AIが投稿案を考え中...</div></div></div>
+        </div>
+
+        <!-- Mode B: Theme → Search -->
+        <div id="sns-theme-area" style="display:none">
+          <input type="text" class="sns-input" id="sns-theme-input" placeholder="投稿テーマ（例: 新入社員歓迎会の様子を紹介したい）" onkeydown="if(event.key==='Enter')generateFromTheme()">
+          <button class="btn-primary" onclick="generateFromTheme()" style="margin-bottom:12px">AIに写真を選んでもらう</button>
+          <div id="sns-theme-loading" style="display:none"><div class="loading-state" style="padding:16px"><div class="spinner"></div><div>写真を検索して投稿文を作成中...</div></div></div>
+        </div>
+
+        <!-- Results -->
+        <div id="sns-results"></div>
       </div>
     </div>
   </div>
@@ -481,13 +527,16 @@ function showView(name){
 }
 function switchTab(tab){
   currentTab=tab;
-  ['upload','browse','search'].forEach(function(t){
-    document.getElementById('tab-'+t).classList.toggle('active',tab===t);
-    document.getElementById('panel-'+t).style.display=tab===t?'':'none';
+  ['upload','browse','search','sns'].forEach(function(t){
+    var tabEl=document.getElementById('tab-'+t);
+    var panelEl=document.getElementById('panel-'+t);
+    if(tabEl)tabEl.classList.toggle('active',tab===t);
+    if(panelEl)panelEl.style.display=tab===t?'':'none';
   });
   document.getElementById('footer-action').style.display=tab==='upload'?'':'none';
   if(tab==='search')document.getElementById('search-query').focus();
   if(tab==='browse')loadBrowseFolder(orgConfig.folderId,orgConfig.folderName,true);
+  if(tab==='sns')loadSnsFolders();
   updateBackBtn();
 }
 function updateBackBtn(){
@@ -555,9 +604,11 @@ async function confirmSetup(){
 function showMainView(){
   showView('main');
   document.getElementById('dest-name').textContent=orgConfig.driveName+' / '+orgConfig.folderName;
-  document.getElementById('admin-badge').style.display=isAdmin()?'':'none';
-  document.getElementById('admin-actions').style.display=isAdmin()?'':'none';
+  var admin=isAdmin();
+  document.getElementById('admin-badge').style.display=admin?'':'none';
+  document.getElementById('admin-actions').style.display=admin?'':'none';
   document.getElementById('admin-panel').style.display='none';
+  document.getElementById('tab-sns').style.display=admin?'':'none';
   document.getElementById('search-empty').style.display='';
   updateTransferBtn();
 }
@@ -1227,6 +1278,159 @@ function renderBrowseBreadcrumb(){
     else h+='<strong>'+escapeHtml(browsePath[i].name)+'</strong>';
   }
   el.innerHTML=h;
+}
+
+// ==================== SNS ====================
+var snsMode='suggest';
+var snsFolders=[];
+
+function setSnsMode(mode){
+  snsMode=mode;
+  document.getElementById('sns-mode-suggest').classList.toggle('active',mode==='suggest');
+  document.getElementById('sns-mode-theme').classList.toggle('active',mode==='theme');
+  document.getElementById('sns-suggest-area').style.display=mode==='suggest'?'':'none';
+  document.getElementById('sns-theme-area').style.display=mode==='theme'?'':'none';
+  document.getElementById('sns-results').innerHTML='';
+}
+
+async function loadSnsFolders(){
+  var c=document.getElementById('sns-folder-list');
+  if(snsFolders.length)return; // already loaded
+  c.innerHTML='<div class="loading-state" style="padding:16px"><div class="spinner"></div></div>';
+  try{
+    var q="'"+orgConfig.folderId+"' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false";
+    var d=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&driveId='+orgConfig.driveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true&fields=files(id,name)&orderBy=name_natural desc&pageSize=50');
+    snsFolders=d.files||[];
+    var h='';
+    for(var i=0;i<snsFolders.length;i++){
+      h+='<div class="folder-item-setup" onclick="generateFromFolder(\''+snsFolders[i].id+'\',\''+escapeAttr(snsFolders[i].name)+'\')"><span class="icon">📁</span><span class="name">'+escapeHtml(snsFolders[i].name)+'</span></div>';
+    }
+    c.innerHTML=h||'<p style="color:#8a7e6e;font-size:.85em">フォルダなし</p>';
+  }catch(e){c.innerHTML='<p style="color:#c0392b">エラー</p>';}
+}
+
+async function generateFromFolder(folderId,folderName){
+  var loading=document.getElementById('sns-suggest-loading');
+  var results=document.getElementById('sns-results');
+  loading.style.display='';results.innerHTML='';
+
+  try{
+    // Get photos in folder
+    var q="'"+folderId+"' in parents and (mimeType contains 'image/') and trashed=false";
+    var base='&driveId='+orgConfig.driveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true';
+    var data=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+base+'&fields=files(id,name,thumbnailLink,description)&orderBy=createdTime desc&pageSize=20');
+    var photos=data.files||[];
+    if(!photos.length){loading.style.display='none';results.innerHTML='<div class="browse-empty">このフォルダに写真がありません</div>';return;}
+
+    // Collect tags from descriptions
+    var allTags=[];
+    var photoInfos=[];
+    for(var i=0;i<photos.length;i++){
+      var desc=photos[i].description||'';
+      var tags=desc.match(/#\S+/g)||[];
+      allTags=allTags.concat(tags);
+      photoInfos.push('写真'+(i+1)+': '+photos[i].name+(tags.length?' ('+tags.join(', ')+')':''));
+    }
+
+    // Ask Gemini to suggest posts
+    var prompt='あなたは企業のSNS担当者です。以下の「'+escapeHtml(folderName)+'」フォルダの写真情報をもとに、SNS投稿案を2〜3案作成してください。\n\n'
+      +'写真一覧:\n'+photoInfos.join('\n')+'\n\n'
+      +'各案について以下のJSON形式で回答してください:\n'
+      +'{"posts":[{"title":"投稿案タイトル","text":"投稿文（ハッシュタグ含む、200文字以内）","photoNumbers":[1,2,3],"platform":"おすすめSNS（X/Instagram/Facebook等）"}]}\n\n'
+      +'注意:\n- 企業の公式アカウントにふさわしいトーンで\n- 写真番号は1始まりで、実際に使う写真を選んでください\n- 各プラットフォームに合った文章スタイルで';
+
+    var json=await callGemini([{text:prompt}],4096);
+    var posts=json.posts||[];
+    loading.style.display='none';
+
+    renderSnsPosts(posts,photos);
+  }catch(e){
+    loading.style.display='none';
+    results.innerHTML='<div class="browse-empty" style="color:#c0392b">エラー: '+escapeHtml(e.message)+'</div>';
+  }
+}
+
+async function generateFromTheme(){
+  var theme=document.getElementById('sns-theme-input').value.trim();
+  if(!theme){showToast('テーマを入力してください');return;}
+
+  var loading=document.getElementById('sns-theme-loading');
+  var results=document.getElementById('sns-results');
+  loading.style.display='';results.innerHTML='';
+
+  try{
+    // Search photos by theme keywords
+    var query="fullText contains '"+theme.replace(/'/g,"\\'")+"' and mimeType contains 'image/' and trashed=false";
+    var base='&driveId='+orgConfig.driveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true';
+    var data=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(query)+base+'&fields=files(id,name,thumbnailLink,description)&orderBy=createdTime desc&pageSize=20');
+    var photos=data.files||[];
+
+    if(!photos.length){loading.style.display='none';results.innerHTML='<div class="browse-empty">「'+escapeHtml(theme)+'」に関連する写真が見つかりませんでした</div>';return;}
+
+    var photoInfos=[];
+    for(var i=0;i<photos.length;i++){
+      var desc=photos[i].description||'';
+      var tags=desc.match(/#\S+/g)||[];
+      photoInfos.push('写真'+(i+1)+': '+photos[i].name+(tags.length?' ('+tags.join(', ')+')':''));
+    }
+
+    var prompt='あなたは企業のSNS担当者です。「'+theme+'」というテーマでSNS投稿を作りたいです。\n\n'
+      +'以下の候補写真から最適なものを選び、投稿案を2〜3案作成してください。\n\n'
+      +'写真一覧:\n'+photoInfos.join('\n')+'\n\n'
+      +'各案について以下のJSON形式で回答してください:\n'
+      +'{"posts":[{"title":"投稿案タイトル","text":"投稿文（ハッシュタグ含む、200文字以内）","photoNumbers":[1,2,3],"platform":"おすすめSNS（X/Instagram/Facebook等）"}]}\n\n'
+      +'注意:\n- 企業の公式アカウントにふさわしいトーンで\n- 写真番号は1始まりで、テーマに最も合う写真を選んでください\n- 各プラットフォームに合った文章スタイルで';
+
+    var json=await callGemini([{text:prompt}],4096);
+    var posts=json.posts||[];
+    loading.style.display='none';
+
+    renderSnsPosts(posts,photos);
+  }catch(e){
+    loading.style.display='none';
+    results.innerHTML='<div class="browse-empty" style="color:#c0392b">エラー: '+escapeHtml(e.message)+'</div>';
+  }
+}
+
+function renderSnsPosts(posts,photos){
+  var rc=document.getElementById('sns-results');
+  if(!posts.length){rc.innerHTML='<div class="browse-empty">投稿案を生成できませんでした</div>';return;}
+  var h='';
+  for(var i=0;i<posts.length;i++){
+    var p=posts[i];
+    h+='<div class="sns-post-card">';
+    h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-size:.75em;background:#f5ece5;padding:3px 10px;border-radius:8px;color:#a0522d;font-weight:600">'+escapeHtml(p.platform||'SNS')+'</span><span style="font-size:.85em;font-weight:600">'+escapeHtml(p.title||'')+'</span></div>';
+    h+='<div class="sns-post-text" id="sns-text-'+i+'">'+escapeHtml(p.text||'')+'</div>';
+    // Photos
+    var nums=p.photoNumbers||[];
+    if(nums.length){
+      h+='<div class="sns-post-photos">';
+      for(var j=0;j<nums.length;j++){
+        var idx=(nums[j]||1)-1;
+        if(idx>=0&&idx<photos.length&&photos[idx].thumbnailLink){
+          h+='<img src="'+escapeAttr(photos[idx].thumbnailLink)+'" alt="'+escapeAttr(photos[idx].name)+'" title="'+escapeAttr(photos[idx].name)+'">';
+        }
+      }
+      h+='</div>';
+    }
+    h+='<div class="sns-post-actions">';
+    h+='<button class="btn-copy" onclick="copySnsText('+i+')">📋 文章をコピー</button>';
+    h+='</div>';
+    h+='</div>';
+  }
+  rc.innerHTML=h;
+}
+
+function copySnsText(idx){
+  var el=document.getElementById('sns-text-'+idx);
+  if(!el)return;
+  navigator.clipboard.writeText(el.textContent).then(function(){
+    showToast('投稿文をコピーしました');
+  }).catch(function(){
+    // Fallback
+    var ta=document.createElement('textarea');ta.value=el.textContent;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    showToast('投稿文をコピーしました');
+  });
 }
 
 // ==================== Photo Detail ====================
