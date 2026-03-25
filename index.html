@@ -1460,7 +1460,7 @@ function renderSnsPosts(posts,photos){
     h+='<textarea class="sns-post-textarea" id="sns-text-'+i+'" oninput="snsPostData['+i+'].text=this.value;autoResize(this)">'+escapeHtml(p.text||'')+'</textarea>';
     // Photo grid - all photos, selected ones highlighted
     h+='<div class="admin-add-row" style="margin-top:8px"><input type="text" class="admin-add-input" id="sns-rewrite-'+i+'" placeholder="AIに修正依頼（例: もっとカジュアルに、敬語で等）" onkeydown="if(event.key===\'Enter\')rewriteSnsText('+i+')"><button class="admin-add-btn" onclick="rewriteSnsText('+i+')">修正</button></div>';
-    h+='<div style="font-size:.75em;color:#8a7e6e;margin-top:8px">写真をタップして選択/解除:</div>';
+    h+='<div style="display:flex;align-items:center;gap:8px;margin-top:8px"><span style="font-size:.75em;color:#8a7e6e">写真をタップして選択/解除:</span><button class="btn-text" style="font-size:.75em" onclick="openSnsPhotoFolder('+i+')">📁 他のフォルダから追加</button></div>';
     h+='<div class="sns-photo-grid" id="sns-photos-'+i+'">';
     for(var j=0;j<photos.length;j++){
       if(!photos[j].thumbnailLink)continue;
@@ -1510,6 +1510,75 @@ function loadSnsAccounts(){
   document.getElementById('sns-account-x').value=a.x||'';
   document.getElementById('sns-account-fb').value=a.fb||'';
   document.getElementById('sns-account-ig').value=a.ig||'';
+}
+
+var snsPhotoPickPostIdx=-1;
+
+function openSnsPhotoFolder(postIdx){
+  snsPhotoPickPostIdx=postIdx;
+  // Show folder list in a simple overlay
+  var overlay=document.getElementById('sns-folder-overlay');
+  if(!overlay){
+    overlay=document.createElement('div');
+    overlay.id='sns-folder-overlay';
+    overlay.className='modal-overlay';
+    overlay.innerHTML='<div class="modal-sheet" style="max-height:70vh;overflow-y:auto"><div class="modal-handle"></div><div class="modal-title">フォルダを選択</div><div id="sns-folder-pick-list"></div></div>';
+    overlay.querySelector('.modal-handle').onclick=function(){overlay.classList.remove('active');};
+    document.body.appendChild(overlay);
+  }
+  overlay.classList.add('active');
+  loadSnsPickFolders();
+}
+
+async function loadSnsPickFolders(){
+  var c=document.getElementById('sns-folder-pick-list');
+  c.innerHTML='<div class="loading-state" style="padding:16px"><div class="spinner"></div></div>';
+  try{
+    var q="'"+orgConfig.folderId+"' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false";
+    var base='&driveId='+orgConfig.driveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true';
+    var d=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+base+'&fields=files(id,name)&orderBy=name_natural desc&pageSize=50');
+    var f=d.files||[];
+    var h='';
+    for(var i=0;i<f.length;i++){
+      h+='<div class="folder-item-setup" onclick="pickSnsFolder(\''+f[i].id+'\')"><span class="icon">📁</span><span class="name">'+escapeHtml(f[i].name)+'</span></div>';
+    }
+    c.innerHTML=h||'<p style="color:#8a7e6e;font-size:.85em;padding:12px">フォルダなし</p>';
+  }catch(e){c.innerHTML='<p style="color:#c0392b">エラー</p>';}
+}
+
+async function pickSnsFolder(folderId){
+  var c=document.getElementById('sns-folder-pick-list');
+  c.innerHTML='<div class="loading-state" style="padding:16px"><div class="spinner"></div><div>写真を読み込み中...</div></div>';
+  try{
+    var q="'"+folderId+"' in parents and (mimeType contains 'image/') and trashed=false";
+    var base='&driveId='+orgConfig.driveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true';
+    var data=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+base+'&fields=files(id,name,thumbnailLink,description)&orderBy=createdTime desc&pageSize=50');
+    var newPhotos=data.files||[];
+    // Merge into snsPostPhotos (avoid duplicates by id)
+    var existingIds=new Set(snsPostPhotos.map(function(p){return p.id}));
+    var added=0;
+    for(var i=0;i<newPhotos.length;i++){
+      if(!existingIds.has(newPhotos[i].id)){
+        snsPostPhotos.push(newPhotos[i]);
+        added++;
+      }
+    }
+    // Close overlay
+    document.getElementById('sns-folder-overlay').classList.remove('active');
+    // Re-render photo grid for the post
+    var idx=snsPhotoPickPostIdx;
+    var grid=document.getElementById('sns-photos-'+idx);
+    var d=snsPostData[idx];
+    var h='';
+    for(var j=0;j<snsPostPhotos.length;j++){
+      if(!snsPostPhotos[j].thumbnailLink)continue;
+      h+='<img src="'+escapeAttr(snsPostPhotos[j].thumbnailLink)+'" data-idx="'+j+'" class="'+(d.selectedPhotoIds.has(j)?'selected':'')+'" onclick="toggleSnsPhoto('+idx+','+j+')" title="'+escapeAttr(snsPostPhotos[j].name)+'">';
+    }
+    grid.innerHTML=h;
+    showToast(added+'枚の写真を追加しました');
+  }catch(e){
+    c.innerHTML='<p style="color:#c0392b">エラー</p>';
+  }
 }
 
 function autoResize(el){
