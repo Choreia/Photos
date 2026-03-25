@@ -1779,8 +1779,6 @@ async function useDraft(idx){
 var pickerPostIdx=-1;
 var editorImg=null;
 var editorRotation=0;
-var editorFlipped=false;
-var editorCropRatio=0; // 0=none, 1=1:1, 16/9
 var editorPhotoIdx=-1;
 
 function openPhotoPicker(postIdx){
@@ -1819,6 +1817,8 @@ function renderPickerGrid(){
 function showPickerDetail(photoIdx){
   var p=snsPostPhotos[photoIdx];
   if(!p)return;
+  editorPhotoIdx=photoIdx;
+  editorRotation=0;cropStart=null;cropEnd=null;
   var d=snsPostData[pickerPostIdx];
   var isSelected=d.selectedPhotoIds.has(photoIdx);
 
@@ -1826,11 +1826,38 @@ function showPickerDetail(photoIdx){
   var editor=document.getElementById('picker-editor');
   editor.classList.add('active');
 
-  // Show photo detail with select/deselect + edit tools
-  var thumbLarge=(p.thumbnailLink||'').replace(/=s\d+/,'=s1200');
-  var h='<img src="'+escapeAttr(thumbLarge)+'" style="max-width:100%;max-height:45vh;border-radius:8px;display:block;margin:0 auto">';
-  h+='<div style="color:#fff;text-align:center;margin-top:10px;font-size:.9em">'+escapeHtml(p.name)+'</div>';
-  // Tags from description
+  // Loading state
+  editor.innerHTML='<div style="color:#fff;text-align:center;padding:40px"><div class="spinner"></div><div style="margin-top:8px">読み込み中...</div></div>';
+
+  // Load image via Drive API
+  fetch('https://www.googleapis.com/drive/v3/files/'+p.id+'?alt=media&supportsAllDrives=true',
+    {headers:{'Authorization':'Bearer '+accessToken}})
+  .then(function(r){return r.blob()})
+  .then(function(blob){
+    var url=URL.createObjectURL(blob);
+    var img=new Image();
+    img.onload=function(){
+      editorImg=img;
+      renderPickerDetailUI(photoIdx);
+    };
+    img.src=url;
+  })
+  .catch(function(){
+    // Fallback to thumbnail
+    var thumbLarge=(p.thumbnailLink||'').replace(/=s\d+/,'=s1200');
+    editor.innerHTML='<img src="'+escapeAttr(thumbLarge)+'" style="max-width:100%;max-height:50vh;border-radius:8px;display:block;margin:0 auto">';
+    renderPickerDetailButtons(photoIdx,editor);
+  });
+}
+
+function renderPickerDetailUI(photoIdx){
+  var p=snsPostPhotos[photoIdx];
+  var d=snsPostData[pickerPostIdx];
+  var isSelected=d.selectedPhotoIds.has(photoIdx);
+  var editor=document.getElementById('picker-editor');
+
+  var h='<canvas id="picker-canvas" style="max-width:100%;max-height:50vh;border-radius:8px;background:#000;cursor:crosshair"></canvas>';
+  // Tags
   var desc=p.description||'';
   var tags=desc.match(/#\S+/g)||[];
   if(tags.length){
@@ -1838,17 +1865,25 @@ function showPickerDetail(photoIdx){
     for(var i=0;i<tags.length;i++)h+='<span class="ai-tag" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff">'+escapeHtml(tags[i])+'</span>';
     h+='</div>';
   }
-  // Select / Deselect button
-  h+='<div style="display:flex;gap:10px;justify-content:center;margin-top:16px">';
+  // Tools
+  h+='<div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">';
+  h+='<button onclick="editorRotate()" style="padding:8px 16px;border:none;border-radius:10px;background:rgba(255,255,255,.15);color:#fff;font-size:.85em;font-weight:600;cursor:pointer">↻ 回転</button>';
+  h+='<button onclick="editorReset()" style="padding:8px 16px;border:none;border-radius:10px;background:rgba(255,255,255,.15);color:#fff;font-size:.85em;font-weight:600;cursor:pointer">↩ 戻す</button>';
+  h+='</div>';
+  h+='<div style="color:rgba(255,255,255,.4);font-size:.7em;text-align:center;margin-top:4px">ドラッグで切り取り</div>';
+  // Select / Apply
+  h+='<div style="display:flex;gap:10px;justify-content:center;margin-top:14px">';
   if(isSelected){
     h+='<button onclick="togglePickerPhoto('+photoIdx+')" style="padding:10px 24px;border:none;border-radius:10px;background:rgba(255,255,255,.2);color:#fff;font-size:.9em;font-weight:600;cursor:pointer">選択を解除</button>';
   }else{
     h+='<button onclick="togglePickerPhoto('+photoIdx+')" style="padding:10px 24px;border:none;border-radius:10px;background:#a0522d;color:#fff;font-size:.9em;font-weight:600;cursor:pointer">✓ この写真を選択</button>';
   }
-  h+='<button onclick="startEditing('+photoIdx+')" style="padding:10px 24px;border:none;border-radius:10px;background:rgba(255,255,255,.15);color:#fff;font-size:.9em;font-weight:600;cursor:pointer">✏️ 加工する</button>';
+  h+='<button onclick="editorSave()" style="padding:10px 24px;border:none;border-radius:10px;background:rgba(255,255,255,.15);color:#fff;font-size:.9em;font-weight:600;cursor:pointer">💾 加工を保存</button>';
   h+='</div>';
 
   editor.innerHTML=h;
+  drawEditor();
+  setTimeout(initCropHandlers,50);
 }
 
 function togglePickerPhoto(photoIdx){
@@ -1859,44 +1894,7 @@ function togglePickerPhoto(photoIdx){
   showPickerDetail(photoIdx);
 }
 
-function startEditing(photoIdx){
-  editorPhotoIdx=photoIdx;
-  editorRotation=0;editorFlipped=false;editorCropRatio=0;
 
-  var p=snsPostPhotos[photoIdx];
-  var editor=document.getElementById('picker-editor');
-
-  // Load image via Drive API to avoid CORS
-  editor.innerHTML='<div style="color:#fff;text-align:center;padding:40px"><div class="spinner"></div><div style="margin-top:8px">画像を読み込み中...</div></div>';
-
-  fetch('https://www.googleapis.com/drive/v3/files/'+p.id+'?alt=media&supportsAllDrives=true',
-    {headers:{'Authorization':'Bearer '+accessToken}})
-  .then(function(r){return r.blob()})
-  .then(function(blob){
-    var url=URL.createObjectURL(blob);
-    var img=new Image();
-    img.onload=function(){
-      editorImg=img;
-      // Render editor UI
-      var h='<canvas id="picker-canvas" style="max-width:100%;max-height:45vh;border-radius:8px;background:#000"></canvas>';
-      h+='<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;justify-content:center">';
-      h+='<button onclick="editorRotate()" style="padding:8px 16px;border:none;border-radius:10px;background:rgba(255,255,255,.15);color:#fff;font-size:.85em;font-weight:600;cursor:pointer">↻ 回転</button>';
-      h+='<button onclick="editorFlip()" style="padding:8px 16px;border:none;border-radius:10px;background:rgba(255,255,255,.15);color:#fff;font-size:.85em;font-weight:600;cursor:pointer">↔ 反転</button>';
-      h+='<button onclick="editorCropSquare()" style="padding:8px 16px;border:none;border-radius:10px;background:rgba(255,255,255,.15);color:#fff;font-size:.85em;font-weight:600;cursor:pointer">◻ 正方形</button>';
-      h+='<button onclick="editorCrop169()" style="padding:8px 16px;border:none;border-radius:10px;background:rgba(255,255,255,.15);color:#fff;font-size:.85em;font-weight:600;cursor:pointer">▭ 16:9</button>';
-      h+='<button onclick="editorReset()" style="padding:8px 16px;border:none;border-radius:10px;background:rgba(255,255,255,.15);color:#fff;font-size:.85em;font-weight:600;cursor:pointer">↩ 戻す</button>';
-      h+='<button onclick="editorSave()" style="padding:8px 16px;border:none;border-radius:10px;background:#a0522d;color:#fff;font-size:.85em;font-weight:600;cursor:pointer">✓ 適用</button>';
-      h+='<button onclick="showPickerDetail('+editorPhotoIdx+')" style="padding:8px 16px;border:none;border-radius:10px;background:rgba(255,255,255,.15);color:#fff;font-size:.85em;font-weight:600;cursor:pointer">✕ キャンセル</button>';
-      h+='</div>';
-      editor.innerHTML=h;
-      drawEditor();
-    };
-    img.src=url;
-  })
-  .catch(function(){
-    editor.innerHTML='<div style="color:#fff;text-align:center;padding:40px">😥 画像を読み込めませんでした</div>';
-  });
-}
 
 function updateSnsPhotoPreview(postIdx){
   var d=snsPostData[postIdx];
@@ -1918,21 +1916,13 @@ function updateSnsPhotoPreview(postIdx){
 function drawEditor(){
   if(!editorImg)return;
   var canvas=document.getElementById('picker-canvas');
+  if(!canvas)return;
   var ctx=canvas.getContext('2d');
   var w=editorImg.naturalWidth,h=editorImg.naturalHeight;
 
-  // Apply rotation
   var rotated=(editorRotation%2!==0);
   var cw=rotated?h:w,ch=rotated?w:h;
 
-  // Apply crop ratio
-  if(editorCropRatio>0){
-    var targetRatio=editorCropRatio;
-    if(cw/ch>targetRatio){cw=Math.round(ch*targetRatio);}
-    else{ch=Math.round(cw/targetRatio);}
-  }
-
-  // Scale down for display
   var maxW=Math.min(window.innerWidth-32,600);
   var maxH=window.innerHeight*0.5;
   var scale=Math.min(maxW/cw,maxH/ch,1);
@@ -1943,26 +1933,72 @@ function drawEditor(){
   ctx.save();
   ctx.translate(canvas.width/2,canvas.height/2);
   ctx.rotate(editorRotation*Math.PI/2);
-  if(editorFlipped)ctx.scale(-1,1);
   var dw=rotated?canvas.height:canvas.width;
   var dh=rotated?canvas.width:canvas.height;
   ctx.drawImage(editorImg,-dw/2,-dh/2,dw,dh);
   ctx.restore();
 }
 
-function editorRotate(){editorRotation=(editorRotation+1)%4;drawEditor();}
-function editorFlip(){editorFlipped=!editorFlipped;drawEditor();}
-function editorCropSquare(){editorCropRatio=editorCropRatio===1?0:1;drawEditor();}
-function editorCrop169(){editorCropRatio=editorCropRatio===16/9?0:16/9;drawEditor();}
-function editorReset(){editorRotation=0;editorFlipped=false;editorCropRatio=0;drawEditor();}
+var cropStart=null,cropEnd=null,isCropping=false;
+
+function editorRotate(){editorRotation=(editorRotation+1)%4;cropStart=null;cropEnd=null;drawEditor();}
+function editorReset(){editorRotation=0;cropStart=null;cropEnd=null;drawEditor();}
+
+function initCropHandlers(){
+  var canvas=document.getElementById('picker-canvas');
+  if(!canvas)return;
+  canvas.style.cursor='crosshair';
+  canvas.onmousedown=canvas.ontouchstart=function(e){
+    e.preventDefault();
+    var r=canvas.getBoundingClientRect();
+    var pt=e.touches?e.touches[0]:e;
+    cropStart={x:pt.clientX-r.left,y:pt.clientY-r.top};
+    cropEnd=null;isCropping=true;
+  };
+  canvas.onmousemove=canvas.ontouchmove=function(e){
+    if(!isCropping)return;
+    e.preventDefault();
+    var r=canvas.getBoundingClientRect();
+    var pt=e.touches?e.touches[0]:e;
+    cropEnd={x:Math.max(0,Math.min(pt.clientX-r.left,canvas.width)),y:Math.max(0,Math.min(pt.clientY-r.top,canvas.height))};
+    drawEditor();
+    // Draw crop overlay
+    if(cropStart&&cropEnd){
+      var ctx=canvas.getContext('2d');
+      var x1=Math.min(cropStart.x,cropEnd.x),y1=Math.min(cropStart.y,cropEnd.y);
+      var w=Math.abs(cropEnd.x-cropStart.x),h=Math.abs(cropEnd.y-cropStart.y);
+      ctx.fillStyle='rgba(0,0,0,.5)';
+      ctx.fillRect(0,0,canvas.width,y1);
+      ctx.fillRect(0,y1,x1,h);
+      ctx.fillRect(x1+w,y1,canvas.width-x1-w,h);
+      ctx.fillRect(0,y1+h,canvas.width,canvas.height-y1-h);
+      ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.setLineDash([4,4]);
+      ctx.strokeRect(x1,y1,w,h);
+      ctx.setLineDash([]);
+    }
+  };
+  canvas.onmouseup=canvas.ontouchend=function(){isCropping=false;};
+}
 
 function editorSave(){
   var canvas=document.getElementById('picker-canvas');
-  canvas.toBlob(function(blob){
+  var outCanvas=canvas;
+  // If crop area selected, crop it
+  if(cropStart&&cropEnd){
+    var x1=Math.min(cropStart.x,cropEnd.x),y1=Math.min(cropStart.y,cropEnd.y);
+    var w=Math.abs(cropEnd.x-cropStart.x),h=Math.abs(cropEnd.y-cropStart.y);
+    if(w>10&&h>10){
+      outCanvas=document.createElement('canvas');
+      outCanvas.width=w;outCanvas.height=h;
+      outCanvas.getContext('2d').drawImage(canvas,x1,y1,w,h,0,0,w,h);
+    }
+  }
+  outCanvas.toBlob(function(blob){
     if(!blob)return;
     var url=URL.createObjectURL(blob);
     snsPostPhotos[editorPhotoIdx].thumbnailLink=url;
     snsPostPhotos[editorPhotoIdx]._editedBlob=blob;
+    cropStart=null;cropEnd=null;
     showPickerDetail(editorPhotoIdx);
     updateSnsPhotoPreview(pickerPostIdx);
     showToast('写真を加工しました');
@@ -2026,18 +2062,9 @@ async function pickSnsFolder(folderId){
         added++;
       }
     }
-    // Close overlay
+    // Close folder overlay, re-render picker grid
     document.getElementById('sns-folder-overlay').classList.remove('active');
-    // Re-render photo grid for the post
-    var idx=snsPhotoPickPostIdx;
-    var grid=document.getElementById('sns-photos-'+idx);
-    var d=snsPostData[idx];
-    var h='';
-    for(var j=0;j<snsPostPhotos.length;j++){
-      if(!snsPostPhotos[j].thumbnailLink)continue;
-      h+='<img src="'+escapeAttr(snsPostPhotos[j].thumbnailLink)+'" data-idx="'+j+'" class="'+(d.selectedPhotoIds.has(j)?'selected':'')+'" onclick="toggleSnsPhoto('+idx+','+j+')" title="'+escapeAttr(snsPostPhotos[j].name)+'">';
-    }
-    grid.innerHTML=h;
+    renderPickerGrid();
     showToast(added+'枚の写真を追加しました');
   }catch(e){
     c.innerHTML='<p style="color:#8a7e6e;font-size:.9em">😥 読み込めませんでした</p>';
