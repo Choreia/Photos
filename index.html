@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Photos">
 <meta name="theme-color" content="#a0522d">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; connect-src https://www.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://generativelanguage.googleapis.com https://lh3.googleusercontent.com; frame-src https://accounts.google.com; img-src * data: blob:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; connect-src https://www.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://generativelanguage.googleapis.com https://lh3.googleusercontent.com; frame-src https://accounts.google.com https://www.openstreetmap.org; img-src * data: blob:;">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;background:#faf8f5;color:#2c2418;line-height:1.6;min-height:100vh;-webkit-tap-highlight-color:transparent}
@@ -129,6 +129,10 @@ input[type="file"]{display:none}
 .photo-detail-row .value{color:#2c2418}
 .photo-detail-row a{color:#a0522d;text-decoration:none;font-weight:500}
 .photo-detail-tags{display:flex;flex-wrap:wrap;gap:6px}
+.photo-detail-map{position:relative;width:100%;height:160px;border-radius:10px;overflow:hidden;margin-top:4px;cursor:pointer}
+.photo-detail-map iframe{width:100%;height:100%;border:none;pointer-events:none}
+.photo-detail-map .map-overlay{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:flex-end;padding:6px}
+.photo-detail-map .map-overlay span{background:rgba(0,0,0,.5);color:#fff;font-size:.7em;padding:3px 8px;border-radius:6px}
 .photo-detail-btn{display:block;width:100%;padding:12px;border:none;border-radius:12px;font-size:.9em;font-weight:600;font-family:inherit;background:#a0522d;color:#fff;cursor:pointer;margin-top:12px;text-align:center}
 .photo-detail-btn:active{opacity:.85}
 .browse-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
@@ -1263,7 +1267,13 @@ function showPhotoDetail(idx){
     var lat=meta.location.latitude;
     var lng=meta.location.longitude;
     var mapUrl='https://www.google.com/maps?q='+lat+','+lng;
-    h+='<div class="photo-detail-row"><span class="icon">📍</span><div><div class="label">撮影場所</div><div class="value"><a href="'+mapUrl+'" target="_blank">地図で見る ('+lat.toFixed(4)+', '+lng.toFixed(4)+')</a></div></div></div>';
+    var bbox=(lng-0.005)+','+(lat-0.003)+','+(lng+0.005)+','+(lat+0.003);
+    var osmEmbed='https://www.openstreetmap.org/export/embed.html?bbox='+bbox+'&layer=mapnik&marker='+lat+','+lng;
+    h+='<div class="photo-detail-row"><span class="icon">📍</span><div><div class="label">撮影場所</div>'
+      +'<div class="photo-detail-map" onclick="window.open(\''+mapUrl+'\',\'_blank\')">'
+      +'<iframe src="'+osmEmbed+'" loading="lazy"></iframe>'
+      +'<div class="map-overlay"><span>Google Mapsで開く</span></div>'
+      +'</div></div></div>';
   }
 
   // Location from description (AI)
