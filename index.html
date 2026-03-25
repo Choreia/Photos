@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Choreia Photos — アルバムをDriveに一括転送</title>
+<meta name="description" content="Google Photosのアルバムを共有ドライブに一括転送。選んで押すだけ。">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Photos">
+<meta name="theme-color" content="#a0522d">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; connect-src https://www.googleapis.com https://accounts.google.com https://photoslibrary.googleapis.com; frame-src https://accounts.google.com; img-src 'self' https://*.googleusercontent.com data: blob:;">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans JP", sans-serif;
+  background: #faf8f5;
+  color: #2c2418;
+  line-height: 1.6;
+  min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
+}
+.container { max-width: 640px; margin: 0 auto; padding: 16px; }
+@media (max-width: 640px) { .container { padding-bottom: 100px; } }
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.header h1 { font-size: 1.3em; }
+.header h1 span { color: #a0522d; }
+.auth-area { display: flex; align-items: center; gap: 8px; font-size: 0.85em; }
+.auth-area img { width: 28px; height: 28px; border-radius: 50%; }
+.btn-google {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 16px 8px 12px; background: #fff; color: #3c4043;
+  border: 1px solid #dadce0; border-radius: 20px; cursor: pointer;
+  font-size: 13px; font-family: 'Google Sans', Roboto, -apple-system, sans-serif;
+  font-weight: 500; box-shadow: 0 1px 2px rgba(60,64,67,0.1);
+  transition: box-shadow 0.2s, background 0.2s;
+}
+.btn-google:hover { background: #f7f8f8; box-shadow: 0 1px 3px rgba(60,64,67,0.2); }
+.btn-google:active { background: #eee; }
+.btn-google svg { flex-shrink: 0; }
+.btn-signout {
+  padding: 4px 10px; background: #f3efe9; color: #8a7e6e;
+  border: 1px solid #d4cdc2; border-radius: 6px; cursor: pointer;
+  font-size: 0.8em; font-family: inherit;
+}
+
+/* Google SVG icon (reusable) */
+.g-svg { width: 18px; height: 18px; }
+
+/* Cards */
+.card {
+  background: #fff; border-radius: 16px; padding: 20px;
+  margin-bottom: 16px; box-shadow: 0 1px 4px rgba(44,36,24,0.06);
+}
+.card h2 {
+  font-size: 1.05em; margin-bottom: 12px;
+  padding-bottom: 8px; border-bottom: 2px solid #a0522d;
+}
+
+/* Dest bar */
+.dest-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; background: #f5ece5; border-radius: 12px;
+  margin-bottom: 16px; font-size: 0.9em;
+}
+.dest-bar .icon { font-size: 1.3em; }
+.dest-bar .label { color: #8a7e6e; font-size: 0.8em; }
+.dest-bar .name { font-weight: 600; color: #5a3e28; }
+.dest-bar .admin-badge {
+  margin-left: auto; font-size: 0.7em; background: #a0522d;
+  color: #fff; padding: 2px 8px; border-radius: 10px;
+}
+
+/* Select bar */
+.select-bar {
+  display: none; align-items: center; justify-content: space-between;
+  margin-bottom: 12px; padding: 0 2px;
+}
+.select-count { font-size: 0.9em; font-weight: 600; color: #a0522d; }
+.select-all-btn {
+  font-size: 0.85em; color: #a0522d; background: none; border: none;
+  font-weight: 600; cursor: pointer; padding: 4px 8px; font-family: inherit;
+}
+
+/* Album list */
+.album-list { display: flex; flex-direction: column; gap: 8px; }
+.album-card {
+  display: flex; align-items: center; background: #fff;
+  border: 2px solid #ece6de; border-radius: 14px; overflow: hidden;
+  cursor: pointer; transition: border-color 0.15s, background 0.15s;
+  -webkit-user-select: none; user-select: none;
+}
+.album-card:active { transform: scale(0.98); }
+.album-card.selected { border-color: #a0522d; background: #fdf5f0; }
+.album-thumb { width: 64px; height: 64px; object-fit: cover; flex-shrink: 0; }
+.album-thumb-empty {
+  width: 64px; height: 64px; background: #f5ece5; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; color: #c4a882;
+}
+.album-details { padding: 8px 12px; flex: 1; min-width: 0; }
+.album-name {
+  font-size: 0.95em; font-weight: 600; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.album-meta { font-size: 0.75em; color: #8a7e6e; margin-top: 1px; }
+.album-check {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 2px solid #d4cdc2; margin-right: 12px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; font-size: 12px; color: transparent;
+}
+.album-card.selected .album-check {
+  background: #a0522d; border-color: #a0522d; color: #fff;
+}
+
+/* Setup: drive/folder list */
+.drive-list, .folder-list-setup { display: flex; flex-direction: column; gap: 6px; }
+.drive-item, .folder-item-setup {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; border: 2px solid #ece6de; border-radius: 12px;
+  cursor: pointer; transition: border-color 0.15s, background 0.15s;
+  -webkit-user-select: none; user-select: none;
+}
+.drive-item:active, .folder-item-setup:active { transform: scale(0.98); }
+.drive-item.selected, .folder-item-setup.selected {
+  border-color: #a0522d; background: #fdf5f0;
+}
+.drive-item .icon, .folder-item-setup .icon { font-size: 1.2em; }
+.drive-item .name, .folder-item-setup .name { font-size: 0.95em; font-weight: 500; flex: 1; }
+.folder-item-setup .arrow {
+  color: #c4a882; font-size: 1.1em; margin-left: auto; cursor: pointer;
+  padding: 4px 8px;
+}
+
+/* Breadcrumb */
+.breadcrumb {
+  display: flex; align-items: center; gap: 4px; margin-bottom: 10px;
+  font-size: 0.8em; color: #8a7e6e; flex-wrap: wrap;
+}
+.breadcrumb a { color: #a0522d; text-decoration: none; cursor: pointer; }
+.breadcrumb a:hover { text-decoration: underline; }
+
+/* Buttons */
+.btn-primary {
+  display: block; width: 100%; padding: 14px; border: none;
+  border-radius: 14px; font-size: 1em; font-weight: 700;
+  font-family: inherit; color: #fff;
+  background: linear-gradient(135deg, #a0522d 0%, #7a3d22 100%);
+  cursor: pointer; transition: opacity 0.15s;
+  box-shadow: 0 2px 8px rgba(122,61,34,0.25);
+}
+.btn-primary:active:not(:disabled) { opacity: 0.85; }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-secondary {
+  display: block; width: 100%; padding: 12px; border: none;
+  border-radius: 12px; font-size: 0.95em; font-weight: 600;
+  font-family: inherit; background: #f5ece5; color: #5a3e28;
+  cursor: pointer; margin-top: 8px;
+}
+.btn-secondary:active { background: #ece6de; }
+.btn-text {
+  background: none; border: none; color: #a0522d; font-size: 0.85em;
+  font-weight: 600; cursor: pointer; padding: 4px 0; font-family: inherit;
+}
+
+/* Footer action */
+.footer-action {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  padding: 12px 16px;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  background: rgba(250,248,245,0.92);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid #ece6de; z-index: 100; display: none;
+}
+.footer-action .btn-primary { max-width: 640px; margin: 0 auto; }
+
+/* Modal */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(44,36,24,0.4);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  z-index: 200; align-items: flex-end; justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal-sheet {
+  background: #fff; border-radius: 20px 20px 0 0;
+  width: 100%; max-width: 500px; padding: 20px;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+  animation: slideUp 0.3s ease;
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.modal-handle {
+  width: 36px; height: 4px; background: #d4cdc2;
+  border-radius: 2px; margin: 0 auto 16px;
+}
+.modal-title {
+  font-size: 1.05em; font-weight: 700; text-align: center;
+  margin-bottom: 16px; color: #2c2418;
+}
+
+/* Progress ring */
+.progress-ring { width: 110px; height: 110px; margin: 0 auto 12px; position: relative; }
+.progress-ring svg { transform: rotate(-90deg); width: 110px; height: 110px; }
+.progress-ring .bg { fill: none; stroke: #f5ece5; stroke-width: 7; }
+.progress-ring .fg {
+  fill: none; stroke: #a0522d; stroke-width: 7; stroke-linecap: round;
+  stroke-dasharray: 314.16; stroke-dashoffset: 314.16;
+  transition: stroke-dashoffset 0.3s;
+}
+.progress-pct {
+  position: absolute; inset: 0; display: flex;
+  align-items: center; justify-content: center;
+  font-size: 1.6em; font-weight: 700; color: #a0522d;
+}
+.progress-file {
+  text-align: center; font-size: 0.8em; color: #8a7e6e;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 280px; margin: 0 auto 2px;
+}
+.progress-detail { text-align: center; font-size: 0.85em; color: #5a5044; }
+
+/* Done */
+.done-icon { font-size: 3em; text-align: center; margin-bottom: 8px; }
+.done-msg { font-size: 1.15em; font-weight: 700; text-align: center; margin-bottom: 4px; }
+.done-detail { font-size: 0.85em; color: #8a7e6e; text-align: center; margin-bottom: 16px; }
+
+/* Loading / empty */
+.loading-state { text-align: center; padding: 48px 20px; color: #8a7e6e; }
+.spinner {
+  display: inline-block; width: 24px; height: 24px;
+  border: 3px solid #ece6de; border-top-color: #a0522d;
+  border-radius: 50%; animation: spin 0.7s linear infinite; margin-bottom: 8px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty-state { text-align: center; padding: 40px 16px; color: #8a7e6e; }
+.empty-state .icon { font-size: 2.5em; margin-bottom: 8px; }
+
+/* Toast */
+.toast {
+  position: fixed; top: 20px; left: 50%; z-index: 300;
+  transform: translateX(-50%) translateY(-80px);
+  background: #2c2418; color: #fff; padding: 10px 20px;
+  border-radius: 10px; font-size: 0.85em;
+  transition: transform 0.3s ease; pointer-events: none;
+  max-width: 90%; text-align: center;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+.footer-info {
+  text-align: center; padding: 16px; font-size: 0.75em; color: #b0a89e;
+}
+.footer-info a { color: #a0522d; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <h1><span>Choreia</span> Photos</h1>
+    <div class="auth-area">
+      <div id="auth-out">
+        <button class="btn-google" onclick="handleSignIn()">
+          <svg class="g-svg" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 6.29C4.672 4.163 6.656 2.58 9 3.58z"/></svg>
+          ログイン
+        </button>
+      </div>
+      <div id="auth-in" style="display:none">
+        <img id="user-avatar" src="" alt="" style="display:none">
+        <span id="user-name"></span>
+        <button class="btn-signout" onclick="handleSignOut()">ログアウト</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== VIEW: Welcome (logged out) ===== -->
+  <div id="view-welcome">
+    <div class="card" style="text-align:center; padding:48px 20px;">
+      <div style="font-size:3em; margin-bottom:12px;">📸</div>
+      <h2 style="border:none; font-size:1.2em; margin-bottom:8px;">写真をDriveに一括転送</h2>
+      <p style="color:#5a5044; font-size:0.9em; margin-bottom:20px;">
+        Google Photosのアルバムを選んで<br>共有ドライブにまとめて転送
+      </p>
+      <button class="btn-google" onclick="handleSignIn()" style="margin:0 auto;">
+        <svg class="g-svg" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 6.29C4.672 4.163 6.656 2.58 9 3.58z"/></svg>
+        Googleでログイン
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== VIEW: Loading config ===== -->
+  <div id="view-loading" style="display:none">
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <div>設定を確認中...</div>
+    </div>
+  </div>
+
+  <!-- ===== VIEW: Admin Setup (first login for domain) ===== -->
+  <div id="view-setup" style="display:none">
+    <div class="card">
+      <h2>初期セットアップ</h2>
+      <p style="color:#5a5044; font-size:0.9em; margin-bottom:16px;">
+        あなたが <strong id="setup-domain"></strong> の最初のユーザーです。<br>
+        写真の転送先となる共有ドライブとフォルダを選択してください。<br>
+        あなたがこの組織の管理者になります。
+      </p>
+
+      <!-- Step 1: Select shared drive -->
+      <div id="setup-step1">
+        <h3 style="font-size:0.9em; color:#8a7e6e; margin-bottom:8px;">① 共有ドライブを選択</h3>
+        <div id="setup-drives">
+          <div class="loading-state" style="padding:24px"><div class="spinner"></div><div>読み込み中...</div></div>
+        </div>
+      </div>
+
+      <!-- Step 2: Select folder -->
+      <div id="setup-step2" style="display:none; margin-top:16px;">
+        <h3 style="font-size:0.9em; color:#8a7e6e; margin-bottom:8px;">② フォルダを選択</h3>
+        <div id="setup-breadcrumb" class="breadcrumb"></div>
+        <div id="setup-folders">
+          <div class="loading-state" style="padding:24px"><div class="spinner"></div><div>読み込み中...</div></div>
+        </div>
+        <button class="btn-primary" id="setup-confirm-btn" style="margin-top:16px;" disabled onclick="confirmSetup()">
+          このフォルダに決定
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== VIEW: Main (album transfer) ===== -->
+  <div id="view-main" style="display:none">
+    <!-- Destination -->
+    <div class="dest-bar" id="dest-bar">
+      <span class="icon">📁</span>
+      <div>
+        <div class="label">転送先</div>
+        <div class="name" id="dest-name"></div>
+      </div>
+      <span class="admin-badge" id="admin-badge" style="display:none">管理者</span>
+    </div>
+
+    <!-- Admin: change settings -->
+    <div id="admin-actions" style="display:none; margin-bottom:12px; text-align:right;">
+      <button class="btn-text" onclick="showSetup()">転送先を変更</button>
+    </div>
+
+    <!-- Albums -->
+    <div class="card">
+      <h2>アルバムを選択</h2>
+      <div class="select-bar" id="select-bar">
+        <span class="select-count" id="select-count">0件選択中</span>
+        <button class="select-all-btn" id="select-all-btn" onclick="toggleSelectAll()">すべて選択</button>
+      </div>
+      <div id="album-container">
+        <div class="loading-state"><div class="spinner"></div><div>アルバムを読み込み中...</div></div>
+      </div>
+    </div>
+
+    <div class="footer-info">
+      アルバム名でサブフォルダが自動作成されます
+    </div>
+  </div>
+</div>
+
+<!-- Transfer button (fixed footer) -->
+<div class="footer-action" id="footer-action">
+  <button class="btn-primary" id="transfer-btn" disabled onclick="startTransfer()">
+    転送するアルバムを選択
+  </button>
+</div>
+
+<!-- Progress modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div id="modal-progress">
+      <div class="modal-title" id="modal-title">転送中...</div>
+      <div class="progress-ring">
+        <svg><circle class="bg" cx="55" cy="55" r="50"/><circle class="fg" id="progress-fg" cx="55" cy="55" r="50"/></svg>
+        <div class="progress-pct" id="progress-pct">0%</div>
+      </div>
+      <div class="progress-file" id="progress-file"></div>
+      <div class="progress-detail" id="progress-detail"></div>
+    </div>
+    <div id="modal-done" style="display:none">
+      <div class="done-icon" id="done-icon"></div>
+      <div class="done-msg" id="done-msg"></div>
+      <div class="done-detail" id="done-detail"></div>
+      <button class="btn-secondary" onclick="closeModal()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+// ==================== Config ====================
+var CLIENT_ID = '595564106580-nkfpepcvfn2o5lm62alkchtqtbl4jo08.apps.googleusercontent.com';
+var SCOPES = 'https://www.googleapis.com/auth/photoslibrary.readonly https://www.googleapis.com/auth/drive';
+var CONFIG_FILENAME = 'choreia-photos-config.json';
+
+// ==================== State ====================
+var tokenClient = null;
+var accessToken = null;
+var currentUser = { email: '', name: '', domain: '', photo: '' };
+var orgConfig = null;  // { domain, admin, folderId, folderName, driveId, driveName, configFileId }
+var albums = [];
+var selectedIds = new Set();
+
+// Setup state
+var setupDriveId = '';
+var setupDriveName = '';
+var setupFolderId = '';
+var setupFolderName = '';
+var setupFolderPath = []; // [{id, name}]
+
+// ==================== Auth ====================
+function initGIS() {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: onTokenResponse,
+  });
+  var saved = sessionStorage.getItem('choreia_photos_token');
+  if (saved) {
+    accessToken = saved;
+    restoreSession();
+  }
+}
+
+async function restoreSession() {
+  showView('loading');
+  try {
+    var about = await apiFetch('https://www.googleapis.com/drive/v3/about?fields=user');
+    setUser(about.user);
+    showLoggedIn();
+    await findConfig();
+  } catch(e) {
+    accessToken = null;
+    sessionStorage.removeItem('choreia_photos_token');
+    showView('welcome');
+  }
+}
+
+async function onTokenResponse(resp) {
+  if (resp.error) { showToast('ログインに失敗しました'); return; }
+  accessToken = resp.access_token;
+  sessionStorage.setItem('choreia_photos_token', accessToken);
+  showView('loading');
+  try {
+    var about = await apiFetch('https://www.googleapis.com/drive/v3/about?fields=user');
+    setUser(about.user);
+    showLoggedIn();
+    await findConfig();
+  } catch(e) {
+    showToast('初期化エラー: ' + e.message);
+    showView('welcome');
+  }
+}
+
+function setUser(user) {
+  currentUser.email = user.emailAddress || '';
+  currentUser.name = user.displayName || currentUser.email;
+  currentUser.domain = currentUser.email.split('@')[1] || '';
+  currentUser.photo = user.photoLink || '';
+}
+
+function showLoggedIn() {
+  document.getElementById('user-name').textContent = currentUser.name;
+  var av = document.getElementById('user-avatar');
+  if (currentUser.photo) { av.src = currentUser.photo; av.style.display = ''; }
+  else { av.style.display = 'none'; }
+  document.getElementById('auth-out').style.display = 'none';
+  document.getElementById('auth-in').style.display = 'flex';
+}
+
+function handleSignIn() {
+  if (!tokenClient) { showToast('Google認証の準備中です'); return; }
+  tokenClient.requestAccessToken();
+}
+
+function handleSignOut() {
+  if (accessToken) google.accounts.oauth2.revoke(accessToken);
+  accessToken = null;
+  sessionStorage.removeItem('choreia_photos_token');
+  orgConfig = null;
+  albums = [];
+  selectedIds.clear();
+  document.getElementById('auth-out').style.display = '';
+  document.getElementById('auth-in').style.display = 'none';
+  document.getElementById('footer-action').style.display = 'none';
+  showView('welcome');
+}
+
+// ==================== View switching ====================
+function showView(name) {
+  ['welcome', 'loading', 'setup', 'main'].forEach(function(v) {
+    var el = document.getElementById('view-' + v);
+    if (el) el.style.display = (v === name) ? '' : 'none';
+  });
+  document.getElementById('footer-action').style.display = (name === 'main') ? '' : 'none';
+}
+
+// ==================== Config discovery ====================
+async function findConfig() {
+  // Search all shared drives for choreia-photos-config.json
+  var query = "name='" + CONFIG_FILENAME + "' and trashed=false";
+  var url = 'https://www.googleapis.com/drive/v3/files'
+    + '?q=' + encodeURIComponent(query)
+    + '&corpora=allDrives&includeItemsFromAllDrives=true&supportsAllDrives=true'
+    + '&fields=files(id,name,parents,appProperties)';
+
+  try {
+    var data = await apiFetch(url);
+    var files = data.files || [];
+
+    // Find config matching our domain
+    for (var i = 0; i < files.length; i++) {
+      try {
+        var content = await apiFetch(
+          'https://www.googleapis.com/drive/v3/files/' + files[i].id
+          + '?alt=media&supportsAllDrives=true'
+        );
+        if (content.domain === currentUser.domain) {
+          orgConfig = content;
+          orgConfig.configFileId = files[i].id;
+          showMainView();
+          return;
+        }
+      } catch(e) { /* skip unreadable files */ }
+    }
+  } catch(e) { /* search failed, proceed to setup */ }
+
+  // No config found → admin setup
+  showSetup();
+}
+
+// ==================== Admin Setup ====================
+function showSetup() {
+  showView('setup');
+  document.getElementById('setup-domain').textContent = currentUser.domain;
+  document.getElementById('setup-step2').style.display = 'none';
+  loadSharedDrives();
+}
+
+async function loadSharedDrives() {
+  var container = document.getElementById('setup-drives');
+  container.innerHTML = '<div class="loading-state" style="padding:24px"><div class="spinner"></div><div>読み込み中...</div></div>';
+
+  try {
+    var data = await apiFetch('https://www.googleapis.com/drive/v3/drives?pageSize=100');
+    var drives = data.drives || [];
+
+    if (drives.length === 0) {
+      container.innerHTML = '<div class="empty-state"><p>共有ドライブが見つかりません</p></div>';
+      return;
+    }
+
+    var html = '<div class="drive-list">';
+    for (var i = 0; i < drives.length; i++) {
+      html += '<div class="drive-item" data-id="' + drives[i].id + '" data-name="' + escapeAttr(drives[i].name)
+        + '" onclick="selectDrive(this)">'
+        + '<span class="icon">💾</span>'
+        + '<span class="name">' + escapeHtml(drives[i].name) + '</span>'
+        + '</div>';
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  } catch(e) {
+    container.innerHTML = '<div class="empty-state"><p>読み込みエラー</p></div>';
+  }
+}
+
+function selectDrive(el) {
+  // Deselect others
+  var items = document.querySelectorAll('.drive-item');
+  for (var i = 0; i < items.length; i++) items[i].classList.remove('selected');
+  el.classList.add('selected');
+
+  setupDriveId = el.getAttribute('data-id');
+  setupDriveName = el.getAttribute('data-name');
+  setupFolderId = setupDriveId;
+  setupFolderName = setupDriveName;
+  setupFolderPath = [{ id: setupDriveId, name: setupDriveName }];
+
+  document.getElementById('setup-step2').style.display = '';
+  loadSetupFolders(setupDriveId);
+  updateSetupConfirmBtn();
+}
+
+async function loadSetupFolders(parentId) {
+  var container = document.getElementById('setup-folders');
+  container.innerHTML = '<div class="loading-state" style="padding:24px"><div class="spinner"></div><div>読み込み中...</div></div>';
+  updateSetupBreadcrumb();
+
+  try {
+    var query = "'" + parentId + "' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false";
+    var url = 'https://www.googleapis.com/drive/v3/files'
+      + '?q=' + encodeURIComponent(query)
+      + '&driveId=' + setupDriveId
+      + '&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true'
+      + '&fields=files(id,name)&orderBy=name&pageSize=100';
+
+    var data = await apiFetch(url);
+    var folders = data.files || [];
+
+    if (folders.length === 0) {
+      container.innerHTML = '<p style="color:#8a7e6e; font-size:0.85em; padding:12px;">サブフォルダなし — このフォルダに転送できます</p>';
+      return;
+    }
+
+    var html = '<div class="folder-list-setup">';
+    for (var i = 0; i < folders.length; i++) {
+      var sel = (setupFolderId === folders[i].id) ? ' selected' : '';
+      html += '<div class="folder-item-setup' + sel + '" data-id="' + folders[i].id
+        + '" data-name="' + escapeAttr(folders[i].name)
+        + '" onclick="selectSetupFolder(this)">'
+        + '<span class="icon">📁</span>'
+        + '<span class="name">' + escapeHtml(folders[i].name) + '</span>'
+        + '<span class="arrow" onclick="event.stopPropagation(); openSetupFolder(\'' + folders[i].id + '\',\'' + escapeAttr(folders[i].name) + '\')">▶</span>'
+        + '</div>';
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  } catch(e) {
+    container.innerHTML = '<p style="color:#c0392b; font-size:0.85em; padding:12px;">エラー: ' + escapeHtml(e.message) + '</p>';
+  }
+}
+
+function selectSetupFolder(el) {
+  var items = document.querySelectorAll('.folder-item-setup');
+  for (var i = 0; i < items.length; i++) items[i].classList.remove('selected');
+  el.classList.add('selected');
+  setupFolderId = el.getAttribute('data-id');
+  setupFolderName = el.getAttribute('data-name');
+  updateSetupConfirmBtn();
+}
+
+function openSetupFolder(id, name) {
+  setupFolderPath.push({ id: id, name: name });
+  setupFolderId = id;
+  setupFolderName = name;
+  loadSetupFolders(id);
+  updateSetupConfirmBtn();
+}
+
+function navigateSetupTo(index) {
+  setupFolderPath = setupFolderPath.slice(0, index + 1);
+  var target = setupFolderPath[index];
+  setupFolderId = target.id;
+  setupFolderName = target.name;
+  loadSetupFolders(target.id);
+  updateSetupConfirmBtn();
+}
+
+function updateSetupBreadcrumb() {
+  var el = document.getElementById('setup-breadcrumb');
+  var html = '';
+  for (var i = 0; i < setupFolderPath.length; i++) {
+    if (i > 0) html += ' <span style="color:#d4cdc2">/</span> ';
+    if (i < setupFolderPath.length - 1) {
+      html += '<a onclick="navigateSetupTo(' + i + ')">' + escapeHtml(setupFolderPath[i].name) + '</a>';
+    } else {
+      html += '<strong>' + escapeHtml(setupFolderPath[i].name) + '</strong>';
+    }
+  }
+  el.innerHTML = html;
+}
+
+function updateSetupConfirmBtn() {
+  var btn = document.getElementById('setup-confirm-btn');
+  btn.disabled = !setupFolderId;
+  btn.textContent = setupFolderName ? '「' + setupFolderName + '」に決定' : 'フォルダを選択してください';
+}
+
+async function confirmSetup() {
+  var btn = document.getElementById('setup-confirm-btn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  var config = {
+    domain: currentUser.domain,
+    admin: currentUser.email,
+    adminName: currentUser.name,
+    folderId: setupFolderId,
+    folderName: setupFolderName,
+    driveId: setupDriveId,
+    driveName: setupDriveName,
+    createdAt: new Date().toISOString(),
+  };
+
+  try {
+    // Create config file in the selected folder
+    var metadata = JSON.stringify({
+      name: CONFIG_FILENAME,
+      parents: [setupFolderId],
+      mimeType: 'application/json',
+    });
+
+    var form = new FormData();
+    form.append('metadata', new Blob([metadata], { type: 'application/json' }));
+    form.append('file', new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' }));
+
+    var res = await fetch(
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',
+      { method: 'POST', headers: { 'Authorization': 'Bearer ' + accessToken }, body: form }
+    );
+
+    if (!res.ok) throw new Error('Config save failed: ' + res.status);
+    var file = await res.json();
+
+    orgConfig = config;
+    orgConfig.configFileId = file.id;
+
+    showToast('セットアップ完了！');
+    showMainView();
+  } catch(e) {
+    showToast('保存エラー: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = '「' + setupFolderName + '」に決定';
+  }
+}
+
+// ==================== Main View ====================
+function showMainView() {
+  showView('main');
+
+  // Show destination
+  document.getElementById('dest-name').textContent =
+    orgConfig.driveName + ' / ' + orgConfig.folderName;
+
+  // Show admin badge & actions
+  var isAdmin = (currentUser.email === orgConfig.admin);
+  document.getElementById('admin-badge').style.display = isAdmin ? '' : 'none';
+  document.getElementById('admin-actions').style.display = isAdmin ? '' : 'none';
+
+  loadAlbums();
+}
+
+// ==================== Albums ====================
+async function loadAlbums() {
+  var container = document.getElementById('album-container');
+  container.innerHTML = '<div class="loading-state"><div class="spinner"></div><div>アルバムを読み込み中...</div></div>';
+
+  try {
+    albums = [];
+    var pageToken = null;
+
+    do {
+      var url = 'https://photoslibrary.googleapis.com/v1/albums?pageSize=50';
+      if (pageToken) url += '&pageToken=' + encodeURIComponent(pageToken);
+      var data = await apiFetch(url);
+      var items = data.albums || [];
+      for (var i = 0; i < items.length; i++) {
+        albums.push({
+          id: items[i].id,
+          title: items[i].title || '無題',
+          count: items[i].mediaItemsCount || '0',
+          cover: items[i].coverPhotoBaseUrl || '',
+        });
+      }
+      pageToken = data.nextPageToken || null;
+    } while (pageToken);
+
+    if (albums.length === 0) {
+      container.innerHTML = '<div class="empty-state"><div class="icon">📷</div><p>アルバムが見つかりません</p></div>';
+      return;
+    }
+    renderAlbums();
+  } catch(e) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">⚠️</div><p>読み込みエラー<br><small>' + escapeHtml(e.message) + '</small></p></div>';
+  }
+}
+
+function renderAlbums() {
+  var container = document.getElementById('album-container');
+  var html = '<div class="album-list">';
+  for (var i = 0; i < albums.length; i++) {
+    var a = albums[i];
+    var sel = selectedIds.has(a.id) ? ' selected' : '';
+    var thumb = a.cover
+      ? '<img class="album-thumb" src="' + a.cover + '=w128-h128-c" alt="" loading="lazy">'
+      : '<div class="album-thumb-empty">📷</div>';
+    html += '<div class="album-card' + sel + '" data-id="' + a.id + '" onclick="toggleAlbum(\'' + a.id + '\')">'
+      + thumb
+      + '<div class="album-details"><div class="album-name">' + escapeHtml(a.title) + '</div>'
+      + '<div class="album-meta">' + a.count + '枚</div></div>'
+      + '<div class="album-check">✓</div></div>';
+  }
+  html += '</div>';
+  container.innerHTML = html;
+  document.getElementById('select-bar').style.display = 'flex';
+  updateUI();
+}
+
+function toggleAlbum(id) {
+  if (selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
+  updateUI();
+}
+
+function toggleSelectAll() {
+  if (selectedIds.size === albums.length) selectedIds.clear();
+  else for (var i = 0; i < albums.length; i++) selectedIds.add(albums[i].id);
+  updateUI();
+}
+
+function updateUI() {
+  var cards = document.querySelectorAll('.album-card');
+  for (var i = 0; i < cards.length; i++) {
+    var id = cards[i].getAttribute('data-id');
+    if (selectedIds.has(id)) cards[i].classList.add('selected');
+    else cards[i].classList.remove('selected');
+  }
+  var count = selectedIds.size;
+  document.getElementById('select-count').textContent = count + '件選択中';
+  document.getElementById('select-all-btn').textContent =
+    count === albums.length ? 'すべて解除' : 'すべて選択';
+
+  var btn = document.getElementById('transfer-btn');
+  if (count > 0) {
+    var total = 0;
+    for (var i = 0; i < albums.length; i++)
+      if (selectedIds.has(albums[i].id)) total += parseInt(albums[i].count) || 0;
+    btn.disabled = false;
+    btn.textContent = count + '件のアルバム（' + total + '枚）を転送';
+  } else {
+    btn.disabled = true;
+    btn.textContent = '転送するアルバムを選択';
+  }
+}
+
+// ==================== Transfer ====================
+async function startTransfer() {
+  if (selectedIds.size === 0 || !orgConfig) return;
+
+  var selected = albums.filter(function(a) { return selectedIds.has(a.id); });
+  document.getElementById('modal').classList.add('active');
+  document.getElementById('modal-progress').style.display = 'block';
+  document.getElementById('modal-done').style.display = 'none';
+
+  var totalTransferred = 0;
+  var totalErrors = [];
+
+  for (var ai = 0; ai < selected.length; ai++) {
+    var album = selected[ai];
+    document.getElementById('modal-title').textContent =
+      (ai + 1) + '/' + selected.length + ' ' + album.title;
+
+    try {
+      // 1. Get all media items
+      var mediaItems = [];
+      var pageToken = null;
+      do {
+        var body = { albumId: album.id, pageSize: 100 };
+        if (pageToken) body.pageToken = pageToken;
+        var searchRes = await fetch('https://photoslibrary.googleapis.com/v1/mediaItems:search', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (!searchRes.ok) throw new Error('Photos API: ' + searchRes.status);
+        var searchData = await searchRes.json();
+        var items = searchData.mediaItems || [];
+        for (var i = 0; i < items.length; i++) {
+          mediaItems.push({
+            filename: items[i].filename || 'photo.jpg',
+            baseUrl: items[i].baseUrl,
+            mimeType: items[i].mimeType || 'image/jpeg',
+          });
+        }
+        pageToken = searchData.nextPageToken || null;
+      } while (pageToken);
+
+      // 2. Create subfolder with album name
+      var folderRes = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: album.title,
+          mimeType: 'application/vnd.google-apps.folder',
+          parents: [orgConfig.folderId],
+        }),
+      });
+      if (!folderRes.ok) throw new Error('Folder creation: ' + folderRes.status);
+      var folder = await folderRes.json();
+
+      // 3. Transfer each photo
+      for (var mi = 0; mi < mediaItems.length; mi++) {
+        var item = mediaItems[mi];
+        var pct = Math.round(((mi + 1) / mediaItems.length) * 100);
+        updateProgress(pct, item.filename, (mi + 1) + ' / ' + mediaItems.length);
+
+        try {
+          var photoRes = await fetch(item.baseUrl + '=d');
+          if (!photoRes.ok) { totalErrors.push(item.filename); continue; }
+          var blob = await photoRes.blob();
+
+          var meta = JSON.stringify({ name: item.filename, parents: [folder.id] });
+          var form = new FormData();
+          form.append('metadata', new Blob([meta], { type: 'application/json' }));
+          form.append('file', blob);
+
+          var upRes = await fetch(
+            'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',
+            { method: 'POST', headers: { 'Authorization': 'Bearer ' + accessToken }, body: form }
+          );
+          if (upRes.ok) totalTransferred++;
+          else totalErrors.push(item.filename);
+        } catch(e) {
+          totalErrors.push(item.filename);
+        }
+      }
+    } catch(e) {
+      totalErrors.push(album.title + ': ' + e.message);
+    }
+  }
+
+  // Done
+  document.getElementById('modal-progress').style.display = 'none';
+  document.getElementById('modal-done').style.display = 'block';
+  var hasErr = totalErrors.length > 0;
+  document.getElementById('done-icon').textContent = hasErr ? '⚠️' : '✅';
+  document.getElementById('done-msg').textContent = totalTransferred + '枚を転送しました';
+  document.getElementById('done-detail').textContent =
+    hasErr ? totalErrors.length + '件のエラー' : '全ての写真を転送完了';
+}
+
+function updateProgress(pct, filename, detail) {
+  var circ = 2 * Math.PI * 50;
+  document.getElementById('progress-fg').style.strokeDashoffset = circ * (1 - pct / 100);
+  document.getElementById('progress-pct').textContent = pct + '%';
+  document.getElementById('progress-file').textContent = filename;
+  document.getElementById('progress-detail').textContent = detail;
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('active');
+  selectedIds.clear();
+  updateUI();
+  updateProgress(0, '', '');
+}
+
+// ==================== Utils ====================
+async function apiFetch(url, opts) {
+  opts = opts || {};
+  opts.headers = opts.headers || {};
+  opts.headers['Authorization'] = 'Bearer ' + accessToken;
+  var res = await fetch(url, opts);
+  if (!res.ok) throw new Error('API ' + res.status);
+  return res.json();
+}
+
+function escapeHtml(s) {
+  var d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+function escapeAttr(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 2500);
+}
+
+// ==================== Init ====================
+(function() {
+  var check = setInterval(function() {
+    if (typeof google !== 'undefined' && google.accounts) {
+      clearInterval(check);
+      initGIS();
+    }
+  }, 100);
+})();
+</script>
+
+</body>
+</html>
