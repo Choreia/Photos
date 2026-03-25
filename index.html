@@ -25,7 +25,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans
 .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .header h1{font-size:1.3em}.header h1 span{color:#a0522d}
 .btn-back{display:none;background:none;border:none;font-size:1.2em;cursor:pointer;padding:4px 8px;color:#a0522d;margin-right:4px}
-.auth-area{display:flex;align-items:center;gap:8px;font-size:.85em}
+.auth-area{display:flex;align-items:center;gap:8px;font-size:.85em;position:relative}
 .auth-area img{width:32px;height:32px;border-radius:50%;cursor:pointer}
 .btn-google{display:inline-flex;align-items:center;gap:8px;padding:8px 16px 8px 12px;background:#fff;color:#3c4043;border:1px solid #dadce0;border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;box-shadow:0 1px 2px rgba(60,64,67,.1)}
 .btn-google:active{background:#eee}
@@ -294,8 +294,13 @@ input[type="file"]{display:none}
         </button>
       </div>
       <div id="auth-in" style="display:none">
-        <img id="user-avatar" src="" alt="" style="display:none" title="" onclick="handleSignOut()">
+        <img id="user-avatar" src="" alt="" style="display:none" title="" onclick="toggleUserMenu()">
         <span id="user-name" style="display:none"></span>
+        <div id="user-menu" style="display:none;position:absolute;top:44px;right:0;background:#fff;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.15);padding:12px 16px;min-width:180px;z-index:50">
+          <div id="user-menu-name" style="font-weight:600;font-size:.9em;margin-bottom:4px"></div>
+          <div id="user-menu-email" style="font-size:.75em;color:#8a7e6e;margin-bottom:10px"></div>
+          <button class="btn-signout" onclick="handleSignOut()" style="width:100%">ログアウト</button>
+        </div>
       </div>
     </div>
   </div>
@@ -592,6 +597,15 @@ function showLoggedIn(){
   var av=document.getElementById('user-avatar');
   if(currentUser.photo){av.src=currentUser.photo;av.style.display='';av.title=currentUser.name+' (タップでログアウト)';}else{av.style.display='none';}
   document.getElementById('auth-out').style.display='none';document.getElementById('auth-in').style.display='flex';
+}
+function toggleUserMenu(){
+  var m=document.getElementById('user-menu');
+  var show=m.style.display==='none';
+  m.style.display=show?'':'none';
+  if(show){
+    document.getElementById('user-menu-name').textContent=currentUser.name;
+    document.getElementById('user-menu-email').textContent=currentUser.email;
+  }
 }
 function handleSignIn(){if(!tokenClient){showToast('準備中');return;}tokenClient.requestAccessToken({prompt:'consent'});}
 function handleSignOut(){
