@@ -1074,7 +1074,7 @@ function loadBrowseFolder(folderId,folderName,isRoot){
 
   Promise.all([
     apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(folderQ)+base+'&fields=files(id,name)&orderBy=name&pageSize=100'),
-    apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(photoQ)+base+'&fields=files(id,name,mimeType,thumbnailLink,webViewLink,description,createdTime,imageMediaMetadata)&orderBy=createdTime desc&pageSize=100')
+    apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(photoQ)+base+'&fields=files(id,name,mimeType,thumbnailLink,webViewLink,description,createdTime,imageMediaMetadata,lastModifyingUser)&orderBy=createdTime desc&pageSize=100')
   ]).then(function(results){
     document.getElementById('browse-loading').style.display='none';
     var folders=results[0].files||[];
@@ -1281,6 +1281,12 @@ function showPhotoDetail(idx){
     h+='<div class="photo-detail-row"><span class="icon">🏷️</span><div><div class="label">タグ</div><div class="photo-detail-tags">';
     for(var i=0;i<tags.length;i++)h+='<span class="ai-tag">'+escapeHtml(tags[i])+'</span>';
     h+='</div></div></div>';
+  }
+
+  // Uploader
+  if(p.lastModifyingUser){
+    var u=p.lastModifyingUser;
+    h+='<div class="photo-detail-row"><span class="icon">👤</span><div><div class="label">アップロード者</div><div class="value">'+escapeHtml(u.displayName||u.emailAddress||'')+'</div></div></div>';
   }
 
   // Camera info
