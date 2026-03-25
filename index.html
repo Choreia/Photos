@@ -458,8 +458,9 @@ input[type="file"]{display:none}
       <div class="card">
         <h2>SNS投稿アシスタント</h2>
         <div class="sns-modes">
-          <button class="sns-mode active" id="sns-mode-suggest" onclick="setSnsMode('suggest')">📸 写真から提案</button>
-          <button class="sns-mode" id="sns-mode-theme" onclick="setSnsMode('theme')">💡 テーマから作成</button>
+          <button class="sns-mode active" id="sns-mode-suggest" onclick="setSnsMode('suggest')">📸 AI提案</button>
+          <button class="sns-mode" id="sns-mode-theme" onclick="setSnsMode('theme')">💡 テーマ</button>
+          <button class="sns-mode" id="sns-mode-manual" onclick="setSnsMode('manual')">✍️ 手動</button>
           <button class="sns-mode" id="sns-mode-drafts" onclick="setSnsMode('drafts')">📝 下書き</button>
         </div>
 
@@ -475,6 +476,13 @@ input[type="file"]{display:none}
           <input type="text" class="sns-input" id="sns-theme-input" placeholder="投稿テーマ（例: 新入社員歓迎会の様子を紹介したい）" onkeydown="if(event.key==='Enter')generateFromTheme()">
           <button class="btn-primary" id="sns-theme-btn" onclick="generateFromTheme()" style="margin-bottom:12px">AIに写真を選んでもらう</button>
           <div id="sns-theme-loading" style="display:none"><div class="loading-state" style="padding:16px"><div class="spinner"></div><div>写真を検索して投稿文を作成中...</div></div></div>
+        </div>
+
+        <!-- Mode C: Manual -->
+        <div id="sns-manual-area" style="display:none">
+          <p style="font-size:.85em;color:#8a7e6e;margin-bottom:10px">AIを使わず手動で投稿文を作成します</p>
+          <div id="sns-manual-folder-list" class="sns-folder-select"></div>
+          <button class="btn-primary" onclick="createManualPost()" style="margin-top:12px">投稿を作成</button>
         </div>
 
         <!-- Drafts -->
@@ -1414,13 +1422,14 @@ var snsFolders=[];
 
 function setSnsMode(mode){
   snsMode=mode;
-  ['suggest','theme','drafts'].forEach(function(m){
+  ['suggest','theme','manual','drafts'].forEach(function(m){
     document.getElementById('sns-mode-'+m).classList.toggle('active',mode===m);
     var area=document.getElementById('sns-'+m+'-area');
     if(area)area.style.display=mode===m?'':'none';
   });
   document.getElementById('sns-results').innerHTML='';
   if(mode==='drafts')loadDrafts();
+  if(mode==='manual')loadManualFolders();
 }
 
 async function loadSnsFolders(){
@@ -1635,6 +1644,48 @@ function loadSnsAccounts(){
   document.getElementById('sns-account-x').value=a.x||'';
   document.getElementById('sns-account-fb').value=a.fb||'';
   document.getElementById('sns-account-ig').value=a.ig||'';
+}
+
+// ==================== Manual Post ====================
+var manualSelectedFolderId='';
+
+async function loadManualFolders(){
+  var c=document.getElementById('sns-manual-folder-list');
+  c.innerHTML='<div class="loading-state" style="padding:16px"><div class="spinner"></div></div>';
+  try{
+    var q="'"+orgConfig.folderId+"' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false";
+    var base='&driveId='+orgConfig.driveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true';
+    var d=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+base+'&fields=files(id,name)&orderBy=name_natural desc&pageSize=50');
+    var folders=d.files||[];
+    var h='';
+    for(var i=0;i<folders.length;i++){
+      h+='<div class="folder-item-setup" onclick="selectManualFolder(this,\''+folders[i].id+'\')">'
+        +'<span class="icon">📁</span><span class="name">'+escapeHtml(folders[i].name)+'</span></div>';
+    }
+    c.innerHTML=h||'<p style="color:#8a7e6e;font-size:.85em">フォルダなし</p>';
+  }catch(e){c.innerHTML='<p style="color:#8a7e6e;font-size:.9em">😥 読み込めませんでした</p>';}
+}
+
+function selectManualFolder(el,folderId){
+  document.querySelectorAll('#sns-manual-folder-list .folder-item-setup').forEach(function(x){x.classList.remove('selected')});
+  el.classList.add('selected');
+  manualSelectedFolderId=folderId;
+}
+
+async function createManualPost(){
+  var photos=[];
+  if(manualSelectedFolderId){
+    try{
+      var q="'"+manualSelectedFolderId+"' in parents and (mimeType contains 'image/') and trashed=false";
+      var base='&driveId='+orgConfig.driveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true';
+      var data=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+base+'&fields=files(id,name,thumbnailLink,description)&orderBy=createdTime desc&pageSize=20');
+      photos=data.files||[];
+    }catch(e){}
+  }
+
+  snsPostPhotos=photos;
+  var posts=[{text:'',title:'手動投稿',platform:'',photoNumbers:[]}];
+  renderSnsPosts(posts,photos);
 }
 
 // ==================== Drafts ====================
