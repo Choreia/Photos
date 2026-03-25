@@ -110,7 +110,16 @@ input[type="file"]{display:none}
 .browse-photo{border-radius:10px;overflow:hidden;background:#f5ece5;cursor:pointer;position:relative}
 .browse-photo img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
 .browse-photo .name{position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,.6));color:#fff;font-size:.65em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.browse-photo .ribbon{position:absolute;top:4px;right:4px;display:flex;flex-direction:column;gap:2px;align-items:flex-end}
+.browse-photo .ribbon-tag{font-size:.55em;padding:2px 6px;border-radius:3px;color:#fff;font-weight:600;max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
 .browse-empty{text-align:center;padding:32px 20px;color:#8a7e6e;font-size:.9em}
+
+/* Search suggestions */
+.search-suggestions{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.search-chip{display:inline-block;padding:5px 12px;border-radius:16px;font-size:.8em;font-weight:500;cursor:pointer;border:1px solid #d4cdc2;background:#fff;color:#5a3e28;transition:all .15s}
+.search-chip:active{transform:scale(.95)}
+.search-chip.tag{border-color:#a0522d;color:#a0522d;background:#fdf5f0}
+.search-chip.loc{border-color:#2e7d32;color:#2e7d32;background:#f0f7f0}
 
 /* Photo detail */
 .photo-detail-overlay{display:none;position:fixed;inset:0;background:rgba(44,36,24,.85);z-index:250;overflow-y:auto;-webkit-overflow-scrolling:touch}
@@ -378,6 +387,7 @@ input[type="file"]{display:none}
           <input type="text" class="search-input" id="search-query" placeholder="キーワード or 場所名（例: りんご, 静岡）" onkeydown="if(event.key==='Enter')doSearch()">
           <button class="search-btn" onclick="doSearch()">検索</button>
         </div>
+        <div id="search-suggestions" class="search-suggestions"></div>
         <div id="search-loading" style="display:none"><div class="loading-state" style="padding:16px"><div class="spinner"></div><div>検索中...</div></div></div>
         <div id="search-results"></div>
         <div id="search-empty" style="display:none" class="loading-state">タグやキーワードで写真を横断検索できます</div>
@@ -535,7 +545,7 @@ function switchTab(tab){
     if(panelEl)panelEl.style.display=tab===t?'':'none';
   });
   document.getElementById('footer-action').style.display=tab==='upload'?'':'none';
-  if(tab==='search')document.getElementById('search-query').focus();
+  if(tab==='search'){document.getElementById('search-query').focus();loadSearchSuggestions();}
   if(tab==='browse')loadBrowseFolder(orgConfig.folderId,orgConfig.folderName,true);
   if(tab==='sns')loadSnsFolders();
   updateBackBtn();
@@ -1162,8 +1172,10 @@ function loadBrowseFolder(folderId,folderName,isRoot){
         var p=photos[i];
         var thumb=p.thumbnailLink||'';
         var link=p.webViewLink||'';
+        var ribbonHtml=buildRibbonTags(p.description||'');
         h+='<div class="browse-photo" onclick="showPhotoDetail('+i+')">'
           +(thumb?'<img src="'+escapeAttr(thumb)+'" alt="" loading="lazy">':'<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:2em">'+(p.mimeType.indexOf('video')>=0?'🎬':'🖼')+'</div>')
+          +ribbonHtml
           +'<div class="name">'+escapeHtml(p.name)+'</div></div>';
       }
       pc.innerHTML=h+'</div>';
@@ -1530,6 +1542,46 @@ function closePhotoDetail(){
 }
 
 // ==================== Search ====================
+var searchSuggestionsLoaded=false;
+async function loadSearchSuggestions(){
+  if(searchSuggestionsLoaded)return;
+  var c=document.getElementById('search-suggestions');
+  try{
+    // Get recent photos with descriptions to extract tags and locations
+    var q="(mimeType contains 'image/') and trashed=false";
+    var base='&driveId='+orgConfig.driveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true';
+    var data=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+base+'&fields=files(description)&orderBy=createdTime desc&pageSize=100');
+    var files=data.files||[];
+    var tagCount={},locSet={};
+    for(var i=0;i<files.length;i++){
+      var desc=files[i].description||'';
+      var tags=desc.match(/#\S+/g)||[];
+      for(var j=0;j<tags.length;j++){var t=tags[j].replace(/^#/,'');tagCount[t]=(tagCount[t]||0)+1;}
+      var locM=desc.match(/📍\s*(.+)/);
+      if(locM)locSet[locM[1].trim()]=true;
+    }
+    // Sort tags by frequency
+    var sorted=Object.keys(tagCount).sort(function(a,b){return tagCount[b]-tagCount[a]});
+    var topTags=sorted.slice(0,12);
+    var locs=Object.keys(locSet).slice(0,6);
+
+    var h='';
+    for(var i=0;i<topTags.length;i++){
+      h+='<span class="search-chip tag" style="border-color:'+tagColor(topTags[i])+';color:'+tagColor(topTags[i])+'" onclick="searchByChip(this)">'+escapeHtml(topTags[i])+'</span>';
+    }
+    for(var i=0;i<locs.length;i++){
+      h+='<span class="search-chip loc" onclick="searchByChip(this)">📍 '+escapeHtml(locs[i])+'</span>';
+    }
+    c.innerHTML=h;
+    searchSuggestionsLoaded=true;
+  }catch(e){/* ignore */}
+}
+function searchByChip(el){
+  var text=el.textContent.replace(/^📍\s*/,'');
+  document.getElementById('search-query').value=text;
+  doSearch();
+}
+
 async function doSearch(){
   var q=document.getElementById('search-query').value.trim();if(!q)return;
   var rc=document.getElementById('search-results');
@@ -1572,6 +1624,22 @@ async function apiFetch(url,opts){
   var res=await fetch(url,opts);if(!res.ok){var e='';try{e=JSON.stringify(await res.json())}catch(x){}throw new Error('API '+res.status+': '+e);}return res.json();
 }
 function isBlockedDomain(d){return BLOCKED_DOMAINS.indexOf(d.toLowerCase())!==-1}
+// Tag colors - consistent color per tag text
+var TAG_COLORS=['#a0522d','#2e7d32','#1565c0','#6a1b9a','#c62828','#00838f','#ef6c00','#4527a0','#2e4057','#ad1457'];
+function tagColor(tag){
+  var h=0;for(var i=0;i<tag.length;i++)h=((h<<5)-h)+tag.charCodeAt(i);
+  return TAG_COLORS[Math.abs(h)%TAG_COLORS.length];
+}
+function buildRibbonTags(desc){
+  var tags=(desc||'').match(/#\S+/g)||[];
+  if(!tags.length)return'';
+  var h='<div class="ribbon">';
+  for(var i=0;i<Math.min(tags.length,2);i++){
+    var t=tags[i].replace(/^#/,'');
+    h+='<span class="ribbon-tag" style="background:'+tagColor(t)+'">'+escapeHtml(t)+'</span>';
+  }
+  return h+'</div>';
+}
 function getTodayYM(){var d=new Date();return d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')}
 function escapeHtml(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
 function escapeAttr(s){return(s||'').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
