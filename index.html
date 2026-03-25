@@ -1107,13 +1107,13 @@ async function retagCurrentFolder(){
     var validBatch=[];
     for(var j=0;j<batch.length;j++){
       try{
-        // Use thumbnail URL to fetch image data
-        var thumbUrl=batch[j].thumbnailLink.replace(/=s\d+/,'=s800');
-        var resp=await fetch(thumbUrl,{headers:{'Authorization':'Bearer '+accessToken}});
+        // Download file content via Drive API (avoids CORS issues with thumbnail URLs)
+        var resp=await fetch('https://www.googleapis.com/drive/v3/files/'+batch[j].id+'?alt=media&supportsAllDrives=true',
+          {headers:{'Authorization':'Bearer '+accessToken}});
         if(!resp.ok)continue;
         var blob=await resp.blob();
         var base64=await new Promise(function(resolve){var r=new FileReader();r.onload=function(){resolve(r.result.split(',')[1])};r.readAsDataURL(blob)});
-        parts.push({inlineData:{mimeType:blob.type||'image/jpeg',data:base64}});
+        parts.push({inlineData:{mimeType:batch[j].mimeType||'image/jpeg',data:base64}});
         validBatch.push(batch[j]);
       }catch(e){errs++;continue;}
     }
