@@ -468,7 +468,7 @@ input[type="file"]{display:none}
         <!-- Mode B: Theme → Search -->
         <div id="sns-theme-area" style="display:none">
           <input type="text" class="sns-input" id="sns-theme-input" placeholder="投稿テーマ（例: 新入社員歓迎会の様子を紹介したい）" onkeydown="if(event.key==='Enter')generateFromTheme()">
-          <button class="btn-primary" onclick="generateFromTheme()" style="margin-bottom:12px">AIに写真を選んでもらう</button>
+          <button class="btn-primary" id="sns-theme-btn" onclick="generateFromTheme()" style="margin-bottom:12px">AIに写真を選んでもらう</button>
           <div id="sns-theme-loading" style="display:none"><div class="loading-state" style="padding:16px"><div class="spinner"></div><div>写真を検索して投稿文を作成中...</div></div></div>
         </div>
 
@@ -1439,6 +1439,8 @@ async function loadSnsFolders(){
 async function generateFromFolder(folderId,folderName){
   var loading=document.getElementById('sns-suggest-loading');
   var results=document.getElementById('sns-results');
+  var folderList=document.getElementById('sns-folder-list');
+  if(folderList)folderList.style.pointerEvents='none';folderList&&(folderList.style.opacity='0.5');
   loading.style.display='';results.innerHTML='';
 
   try{
@@ -1447,7 +1449,7 @@ async function generateFromFolder(folderId,folderName){
     var base='&driveId='+orgConfig.driveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true';
     var data=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+base+'&fields=files(id,name,thumbnailLink,description)&orderBy=createdTime desc&pageSize=20');
     var photos=data.files||[];
-    if(!photos.length){loading.style.display='none';results.innerHTML='<div class="browse-empty">このフォルダに写真がありません</div>';return;}
+    if(!photos.length){loading.style.display='none';if(folderList){folderList.style.pointerEvents='';folderList.style.opacity='';}results.innerHTML='<div class="browse-empty">このフォルダに写真がありません</div>';return;}
 
     // Collect tags from descriptions
     var allTags=[];
@@ -1469,10 +1471,12 @@ async function generateFromFolder(folderId,folderName){
     var json=await callGemini([{text:prompt}],4096);
     var posts=json.posts||[];
     loading.style.display='none';
+    if(folderList){folderList.style.pointerEvents='';folderList.style.opacity='';}
 
     renderSnsPosts(posts,photos);
   }catch(e){
     loading.style.display='none';
+    if(folderList){folderList.style.pointerEvents='';folderList.style.opacity='';}
     results.innerHTML='<div class="browse-empty">😅 '+(GEMINI_API_KEY?'AIがうまく応答しませんでした。もう一度お試しください':'AI機能を使うには管理者設定からAPIキーを登録してください')+'</div>';
   }
 }
@@ -1480,6 +1484,10 @@ async function generateFromFolder(folderId,folderName){
 async function generateFromTheme(){
   var theme=document.getElementById('sns-theme-input').value.trim();
   if(!theme){showToast('テーマを入力してください');return;}
+
+  var themeBtn=document.getElementById('sns-theme-btn');
+  var themeBtnOrig=themeBtn.textContent;
+  themeBtn.disabled=true;themeBtn.textContent='処理中...';
 
   var loading=document.getElementById('sns-theme-loading');
   var results=document.getElementById('sns-results');
@@ -1492,7 +1500,7 @@ async function generateFromTheme(){
     var data=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(query)+base+'&fields=files(id,name,thumbnailLink,description)&orderBy=createdTime desc&pageSize=20');
     var photos=data.files||[];
 
-    if(!photos.length){loading.style.display='none';results.innerHTML='<div class="browse-empty">「'+escapeHtml(theme)+'」に関連する写真が見つかりませんでした</div>';return;}
+    if(!photos.length){loading.style.display='none';themeBtn.disabled=false;themeBtn.textContent=themeBtnOrig;results.innerHTML='<div class="browse-empty">「'+escapeHtml(theme)+'」に関連する写真が見つかりませんでした</div>';return;}
 
     var photoInfos=[];
     for(var i=0;i<photos.length;i++){
@@ -1511,10 +1519,12 @@ async function generateFromTheme(){
     var json=await callGemini([{text:prompt}],4096);
     var posts=json.posts||[];
     loading.style.display='none';
+    themeBtn.disabled=false;themeBtn.textContent=themeBtnOrig;
 
     renderSnsPosts(posts,photos);
   }catch(e){
     loading.style.display='none';
+    themeBtn.disabled=false;themeBtn.textContent=themeBtnOrig;
     results.innerHTML='<div class="browse-empty">😅 '+(GEMINI_API_KEY?'AIがうまく応答しませんでした。もう一度お試しください':'AI機能を使うには管理者設定からAPIキーを登録してください')+'</div>';
   }
 }
@@ -1623,6 +1633,12 @@ var SNS_DRAFTS_FILENAME='choreia-photos-drafts.json';
 
 async function saveDraft(idx){
   var d=snsPostData[idx];
+  // Find and disable the save button
+  var card=document.getElementById('sns-card-'+idx);
+  var saveBtn=card?card.querySelector('.btn-text[onclick*="saveDraft"]'):null;
+  var saveBtnOrig='';
+  if(saveBtn){saveBtnOrig=saveBtn.innerHTML;saveBtn.disabled=true;saveBtn.innerHTML='保存中...';}
+
   var draft={
     text:getSnsText(idx),
     title:d.title,
@@ -1639,6 +1655,7 @@ async function saveDraft(idx){
     await saveDraftsData(drafts);
     showToast('下書きを保存しました'+(schedule?' (予約: '+new Date(schedule).toLocaleString('ja-JP')+')':''));
   }catch(e){showToast('😥 下書きの保存に失敗しました');}
+  if(saveBtn){saveBtn.disabled=false;saveBtn.innerHTML=saveBtnOrig;}
 }
 
 async function loadDraftsData(){
@@ -1702,6 +1719,8 @@ async function loadDrafts(){
 }
 
 async function deleteDraft(idx){
+  var draftsLoading=document.getElementById('sns-drafts-loading');
+  if(draftsLoading)draftsLoading.style.display='';
   try{
     var drafts=await loadDraftsData();
     drafts.splice(idx,1);
@@ -1709,12 +1728,15 @@ async function deleteDraft(idx){
     showToast('下書きを削除しました');
     loadDrafts();
   }catch(e){showToast('😥 削除に失敗しました');}
+  if(draftsLoading)draftsLoading.style.display='none';
 }
 
 async function useDraft(idx){
+  var draftsLoading=document.getElementById('sns-drafts-loading');
+  if(draftsLoading)draftsLoading.style.display='';
   var drafts=await loadDraftsData();
   var d=drafts[idx];
-  if(!d)return;
+  if(!d){if(draftsLoading)draftsLoading.style.display='none';return;}
   setSnsMode('suggest');
   showToast('下書きを読み込み中...');
 
@@ -1740,6 +1762,7 @@ async function useDraft(idx){
   snsPostData=[{text:d.text,selectedPhotoIds:selectedIds,platform:d.platform,title:d.title}];
   var posts=[{text:d.text,title:d.title,platform:d.platform,photoNumbers:nums}];
   renderSnsPosts(posts,photos);
+  if(draftsLoading)draftsLoading.style.display='none';
   showToast('下書きを読み込みました（📷'+photos.length+'枚）');
 }
 
