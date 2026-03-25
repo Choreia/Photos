@@ -88,6 +88,23 @@ input[type="file"]{display:none}
 .search-result .info .name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .search-result .info .tags{color:#8a7e6e;margin-top:2px}
 
+/* Browse */
+.browse-breadcrumb{display:flex;align-items:center;gap:4px;margin-bottom:12px;font-size:.8em;color:#8a7e6e;flex-wrap:wrap}
+.browse-breadcrumb a{color:#a0522d;text-decoration:none;cursor:pointer;font-weight:500}
+.browse-breadcrumb .sep{margin:0 2px}
+.browse-folders{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.browse-folder{display:flex;align-items:center;gap:10px;padding:12px 14px;border:2px solid #ece6de;border-radius:12px;cursor:pointer;background:#fff}
+.browse-folder:active{transform:scale(.98);background:#fdf5f0}
+.browse-folder .icon{font-size:1.2em}
+.browse-folder .name{font-size:.9em;font-weight:500;flex:1}
+.browse-folder .count{font-size:.75em;color:#8a7e6e}
+.browse-folder .arrow{color:#c4a882;font-size:1em}
+.browse-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px}
+.browse-photo{border-radius:10px;overflow:hidden;background:#f5ece5;cursor:pointer;position:relative}
+.browse-photo img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.browse-photo .name{position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,.6));color:#fff;font-size:.65em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.browse-empty{text-align:center;padding:32px 20px;color:#8a7e6e;font-size:.9em}
+
 /* Buttons */
 .btn-primary{display:block;width:100%;padding:14px;border:none;border-radius:14px;font-size:1em;font-weight:700;font-family:inherit;color:#fff;background:linear-gradient(135deg,#a0522d,#7a3d22);cursor:pointer;box-shadow:0 2px 8px rgba(122,61,34,.25)}
 .btn-primary:active:not(:disabled){opacity:.85}
@@ -203,6 +220,7 @@ input[type="file"]{display:none}
     <!-- Tabs -->
     <div class="tabs">
       <button class="tab active" id="tab-upload" onclick="switchTab('upload')">📤 アップロード</button>
+      <button class="tab" id="tab-browse" onclick="switchTab('browse')">📁 フォルダ</button>
       <button class="tab" id="tab-search" onclick="switchTab('search')">🔍 検索</button>
     </div>
 
@@ -248,6 +266,17 @@ input[type="file"]{display:none}
         <div id="existing-folder-area" style="display:none;margin-top:8px">
           <div id="existing-folders" class="folder-list-setup"></div>
         </div>
+      </div>
+    </div>
+
+    <!-- Browse tab -->
+    <div id="panel-browse" style="display:none">
+      <div class="card">
+        <h2>フォルダから選ぶ</h2>
+        <div id="browse-breadcrumb" class="browse-breadcrumb"></div>
+        <div id="browse-folders"></div>
+        <div id="browse-photos"></div>
+        <div id="browse-loading" style="display:none"><div class="loading-state" style="padding:24px"><div class="spinner"></div><div>読み込み中...</div></div></div>
       </div>
     </div>
 
@@ -298,7 +327,7 @@ input[type="file"]{display:none}
 <script>
 // ==================== Config ====================
 var CLIENT_ID='595564106580-hsrunbvfacmr23d2jopl462taqilip75.apps.googleusercontent.com';
-var SCOPES='https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/generative-language.retriever';
+var SCOPES='https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/generative-language';
 var CONFIG_FILENAME='choreia-photos-config.json';
 var BLOCKED_DOMAINS=['gmail.com','googlemail.com','yahoo.co.jp','yahoo.com','hotmail.com','outlook.com','outlook.jp','icloud.com','me.com','mac.com','aol.com','protonmail.com','zoho.com','live.com','live.jp','msn.com','nifty.com','biglobe.ne.jp','ocn.ne.jp'];
 
@@ -361,12 +390,13 @@ function showView(name){
   document.getElementById('footer-action').style.display=(name==='main')?'':'none';
 }
 function switchTab(tab){
-  document.getElementById('tab-upload').classList.toggle('active',tab==='upload');
-  document.getElementById('tab-search').classList.toggle('active',tab==='search');
-  document.getElementById('panel-upload').style.display=tab==='upload'?'':'none';
-  document.getElementById('panel-search').style.display=tab==='search'?'':'none';
+  ['upload','browse','search'].forEach(function(t){
+    document.getElementById('tab-'+t).classList.toggle('active',tab===t);
+    document.getElementById('panel-'+t).style.display=tab===t?'':'none';
+  });
   document.getElementById('footer-action').style.display=tab==='upload'?'':'none';
   if(tab==='search')document.getElementById('search-query').focus();
+  if(tab==='browse')loadBrowseFolder(orgConfig.folderId,orgConfig.folderName,true);
 }
 
 // ==================== Config ====================
@@ -487,8 +517,9 @@ async function analyzePhotos(){
     // Show folder options
     showFolderOptions();
   }catch(e){
+    console.error('Gemini analysis error:',e);
     document.getElementById('ai-loading').style.display='none';
-    document.getElementById('ai-results').innerHTML='<div class="ai-section"><p style="color:#8a7e6e">AI分析をスキップしました</p></div>';
+    document.getElementById('ai-results').innerHTML='<div class="ai-section"><p style="color:#c0392b">AI分析エラー: '+escapeHtml(e.message)+'</p></div>';
     document.getElementById('ai-results').style.display='';
     aiAnalysis={tags:[],location:'',folderSuggestion:''};
     showFolderOptions();
@@ -632,6 +663,85 @@ function closeModal(){
   selectedFiles=[];aiAnalysis=null;renderPreviews();
   document.getElementById('ai-card').style.display='none';document.getElementById('folder-card').style.display='none';
   updateProgress(0,'','');updateTransferBtn();
+}
+
+// ==================== Browse ====================
+var browsePath=[]; // [{id,name}]
+
+function loadBrowseFolder(folderId,folderName,isRoot){
+  if(isRoot){browsePath=[{id:folderId,name:folderName}];}
+  renderBrowseBreadcrumb();
+  var fc=document.getElementById('browse-folders');fc.innerHTML='';
+  var pc=document.getElementById('browse-photos');pc.innerHTML='';
+  document.getElementById('browse-loading').style.display='';
+
+  // Load subfolders and photos in parallel
+  var driveId=orgConfig.driveId;
+  var folderQ="'"+folderId+"' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false";
+  var photoQ="'"+folderId+"' in parents and (mimeType contains 'image/' or mimeType contains 'video/') and trashed=false";
+  var base='&driveId='+driveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true';
+
+  Promise.all([
+    apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(folderQ)+base+'&fields=files(id,name)&orderBy=name&pageSize=100'),
+    apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(photoQ)+base+'&fields=files(id,name,mimeType,thumbnailLink,webViewLink,description)&orderBy=createdTime desc&pageSize=100')
+  ]).then(function(results){
+    document.getElementById('browse-loading').style.display='none';
+    var folders=results[0].files||[];
+    var photos=results[1].files||[];
+
+    // Render folders
+    if(folders.length){
+      var h='<div class="browse-folders">';
+      for(var i=0;i<folders.length;i++){
+        h+='<div class="browse-folder" onclick="openBrowseFolder(\''+folders[i].id+'\',\''+escapeAttr(folders[i].name)+'\')">'
+          +'<span class="icon">📁</span><span class="name">'+escapeHtml(folders[i].name)+'</span>'
+          +'<span class="arrow">▶</span></div>';
+      }
+      fc.innerHTML=h+'</div>';
+    }
+
+    // Render photos
+    if(photos.length){
+      var h='<div class="browse-photos">';
+      for(var i=0;i<photos.length;i++){
+        var p=photos[i];
+        var thumb=p.thumbnailLink||'';
+        var link=p.webViewLink||'';
+        h+='<div class="browse-photo" onclick="window.open(\''+escapeAttr(link)+'\',\'_blank\')">'
+          +(thumb?'<img src="'+escapeAttr(thumb)+'" alt="" loading="lazy">':'<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:2em">'+(p.mimeType.indexOf('video')>=0?'🎬':'🖼')+'</div>')
+          +'<div class="name">'+escapeHtml(p.name)+'</div></div>';
+      }
+      pc.innerHTML=h+'</div>';
+    }
+
+    if(!folders.length&&!photos.length){
+      pc.innerHTML='<div class="browse-empty">このフォルダは空です</div>';
+    }
+  }).catch(function(e){
+    document.getElementById('browse-loading').style.display='none';
+    fc.innerHTML='<div class="browse-empty" style="color:#c0392b">読み込みエラー: '+escapeHtml(e.message)+'</div>';
+  });
+}
+
+function openBrowseFolder(id,name){
+  browsePath.push({id:id,name:name});
+  loadBrowseFolder(id,name,false);
+}
+
+function navigateBrowseTo(idx){
+  browsePath=browsePath.slice(0,idx+1);
+  var t=browsePath[idx];
+  loadBrowseFolder(t.id,t.name,false);
+}
+
+function renderBrowseBreadcrumb(){
+  var el=document.getElementById('browse-breadcrumb'),h='';
+  for(var i=0;i<browsePath.length;i++){
+    if(i>0)h+='<span class="sep">/</span>';
+    if(i<browsePath.length-1)h+='<a onclick="navigateBrowseTo('+i+')">'+escapeHtml(browsePath[i].name)+'</a>';
+    else h+='<strong>'+escapeHtml(browsePath[i].name)+'</strong>';
+  }
+  el.innerHTML=h;
 }
 
 // ==================== Search ====================
