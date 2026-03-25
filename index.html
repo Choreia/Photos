@@ -154,7 +154,7 @@ input[type="file"]{display:none}
 .btn-copy{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#f5ece5;color:#5a3e28;border:none;border-radius:10px;font-size:.8em;font-weight:600;cursor:pointer;font-family:inherit}
 .btn-copy:active{background:#ece6de}
 .sns-post-photos img.selected{outline:3px solid #a0522d;outline-offset:-3px}
-.sns-post-textarea{width:100%;min-height:360px;padding:16px 18px;border:2px solid #ece6de;border-radius:10px;font-size:1em;font-family:inherit;line-height:1.9;resize:vertical;background:#fff}
+.sns-post-textarea{width:100%;min-height:80px;padding:16px 18px;border:2px solid #ece6de;border-radius:10px;font-size:1em;font-family:inherit;line-height:1.9;resize:vertical;background:#fff;overflow:hidden}
 .sns-post-textarea:focus{border-color:#a0522d;outline:none}
 .sns-photo-grid{display:flex;flex-wrap:wrap;gap:4px;margin:10px 0}
 .sns-photo-grid img{width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;opacity:.4;transition:all .15s}
@@ -167,7 +167,7 @@ input[type="file"]{display:none}
 .btn-sns.fb{background:#1877f2}
 .btn-sns.ig{background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)}
 .btn-sns.dl{background:#5a3e28}
-.sns-post-menu{display:flex;gap:6px;margin-top:8px;animation:fadeIn .2s ease}
+.sns-post-menu{display:flex;gap:6px;margin-top:8px;justify-content:center;animation:fadeIn .2s ease}
 @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
 
 .photo-detail-map{position:relative;width:100%;height:160px;border-radius:10px;overflow:hidden;margin-top:4px;cursor:pointer}
@@ -1457,7 +1457,7 @@ function renderSnsPosts(posts,photos){
     h+='<div class="sns-post-card" id="sns-card-'+i+'">';
     h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'+platformIcon(p.platform)+'<span style="font-size:.85em;font-weight:600">'+escapeHtml(p.title||'')+'</span></div>';
     // Editable text
-    h+='<textarea class="sns-post-textarea" id="sns-text-'+i+'" oninput="snsPostData['+i+'].text=this.value">'+escapeHtml(p.text||'')+'</textarea>';
+    h+='<textarea class="sns-post-textarea" id="sns-text-'+i+'" oninput="snsPostData['+i+'].text=this.value;autoResize(this)">'+escapeHtml(p.text||'')+'</textarea>';
     // Photo grid - all photos, selected ones highlighted
     h+='<div class="admin-add-row" style="margin-top:8px"><input type="text" class="admin-add-input" id="sns-rewrite-'+i+'" placeholder="AIに修正依頼（例: もっとカジュアルに、敬語で等）" onkeydown="if(event.key===\'Enter\')rewriteSnsText('+i+')"><button class="admin-add-btn" onclick="rewriteSnsText('+i+')">修正</button></div>';
     h+='<div style="font-size:.75em;color:#8a7e6e;margin-top:8px">写真をタップして選択/解除:</div>';
@@ -1468,8 +1468,8 @@ function renderSnsPosts(posts,photos){
     }
     h+='</div>';
     // Action buttons
-    h+='<div class="sns-post-btns">';
-    h+='<button class="btn-primary" style="width:auto;padding:10px 24px;font-size:.9em" onclick="showPostMenu('+i+')">投稿する</button>';
+    h+='<div class="sns-post-btns" style="justify-content:center">';
+    h+='<button class="btn-primary" style="width:auto;padding:12px 32px;font-size:.95em" onclick="showPostMenu('+i+')">投稿する</button>';
     h+='<div class="sns-post-menu" id="sns-menu-'+i+'" style="display:none">';
     h+='<button class="btn-sns x" onclick="postToX('+i+')"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></button>';
     h+='<button class="btn-sns fb" onclick="postToFB('+i+')"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></button>';
@@ -1480,6 +1480,8 @@ function renderSnsPosts(posts,photos){
     h+='</div>';
   }
   rc.innerHTML=h;
+  // Auto-resize all textareas
+  setTimeout(function(){for(var i=0;i<posts.length;i++){var ta=document.getElementById('sns-text-'+i);if(ta)autoResize(ta);}},0);
 }
 
 function toggleSnsPhoto(postIdx,photoIdx){
@@ -1508,6 +1510,11 @@ function loadSnsAccounts(){
   document.getElementById('sns-account-x').value=a.x||'';
   document.getElementById('sns-account-fb').value=a.fb||'';
   document.getElementById('sns-account-ig').value=a.ig||'';
+}
+
+function autoResize(el){
+  el.style.height='auto';
+  el.style.height=Math.round(el.scrollHeight*1.2)+'px';
 }
 
 function showPostMenu(idx){
