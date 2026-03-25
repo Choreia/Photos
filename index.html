@@ -26,7 +26,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans
 .header h1{font-size:1.3em}.header h1 span{color:#a0522d}
 .btn-back{display:none;background:none;border:none;font-size:1.2em;cursor:pointer;padding:4px 8px;color:#a0522d;margin-right:4px}
 .auth-area{display:flex;align-items:center;gap:8px;font-size:.85em}
-.auth-area img{width:28px;height:28px;border-radius:50%}
+.auth-area img{width:32px;height:32px;border-radius:50%;cursor:pointer}
 .btn-google{display:inline-flex;align-items:center;gap:8px;padding:8px 16px 8px 12px;background:#fff;color:#3c4043;border:1px solid #dadce0;border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;box-shadow:0 1px 2px rgba(60,64,67,.1)}
 .btn-google:active{background:#eee}
 .btn-google svg{flex-shrink:0;width:18px;height:18px}
@@ -190,7 +190,7 @@ input[type="file"]{display:none}
 .btn-sns.fb{background:#1877f2}
 .btn-sns.ig{background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)}
 .btn-sns.dl{background:#5a3e28}
-.sns-post-menu{display:flex;gap:6px;margin-top:8px;justify-content:center;animation:fadeIn .2s ease}
+.sns-post-menu{gap:6px;margin-top:8px;justify-content:center;animation:fadeIn .2s ease}
 .sns-draft-card{background:#fff;border:1px solid #ece6de;border-radius:12px;padding:14px;margin-bottom:10px}
 .sns-draft-card .draft-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:.8em;color:#8a7e6e}
 .sns-draft-card .draft-text{font-size:.85em;color:#2c2418;line-height:1.6;white-space:pre-wrap;max-height:80px;overflow:hidden}
@@ -294,9 +294,8 @@ input[type="file"]{display:none}
         </button>
       </div>
       <div id="auth-in" style="display:none">
-        <img id="user-avatar" src="" alt="" style="display:none">
-        <span id="user-name"></span>
-        <button class="btn-signout" onclick="handleSignOut()">ログアウト</button>
+        <img id="user-avatar" src="" alt="" style="display:none" title="" onclick="handleSignOut()">
+        <span id="user-name" style="display:none"></span>
       </div>
     </div>
   </div>
@@ -492,7 +491,7 @@ input[type="file"]{display:none}
 <!-- Photo Picker -->
 <div class="picker-overlay" id="photo-picker">
   <div class="picker-header">
-    <button onclick="closePhotoPicker()">✕</button>
+    <button id="picker-back-btn" onclick="editorBackToGrid()">←</button>
     <span class="title" id="picker-title">写真を選択</span>
     <button class="done-btn" onclick="closePhotoPicker()">完了</button>
   </div>
@@ -502,18 +501,7 @@ input[type="file"]{display:none}
     </div>
     <div class="picker-grid" id="picker-grid"></div>
   </div>
-  <div class="picker-editor" id="picker-editor">
-    <canvas id="picker-canvas"></canvas>
-    <div class="picker-editor-tools">
-      <button onclick="editorRotate()">↻ 回転</button>
-      <button onclick="editorFlip()">↔ 反転</button>
-      <button onclick="editorCropSquare()">◻ 正方形</button>
-      <button onclick="editorCrop169()">▭ 16:9</button>
-      <button onclick="editorReset()">↩ 元に戻す</button>
-      <button onclick="editorSave()" style="background:#a0522d">✓ 適用</button>
-      <button onclick="editorCancel()">✕ キャンセル</button>
-    </div>
-  </div>
+  <div class="picker-editor" id="picker-editor"></div>
 </div>
 
 <!-- Photo Detail -->
@@ -602,7 +590,7 @@ function setUser(u){currentUser.email=u.emailAddress||'';currentUser.name=u.disp
 function showLoggedIn(){
   document.getElementById('user-name').textContent=currentUser.name;
   var av=document.getElementById('user-avatar');
-  if(currentUser.photo){av.src=currentUser.photo;av.style.display='';}else{av.style.display='none';}
+  if(currentUser.photo){av.src=currentUser.photo;av.style.display='';av.title=currentUser.name+' (タップでログアウト)';}else{av.style.display='none';}
   document.getElementById('auth-out').style.display='none';document.getElementById('auth-in').style.display='flex';
 }
 function handleSignIn(){if(!tokenClient){showToast('準備中');return;}tokenClient.requestAccessToken({prompt:'consent'});}
@@ -1798,7 +1786,7 @@ function renderPickerGrid(){
   for(var j=0;j<snsPostPhotos.length;j++){
     if(!snsPostPhotos[j].thumbnailLink)continue;
     var sel=d.selectedPhotoIds.has(j);
-    h+='<div class="picker-item'+(sel?' selected':'')+'" data-idx="'+j+'" onclick="togglePickerPhoto('+j+')">'
+    h+='<div class="picker-item'+(sel?' selected':'')+'" data-idx="'+j+'" onclick="showPickerDetail('+j+')">'
       +'<img src="'+escapeAttr(snsPostPhotos[j].thumbnailLink.replace(/=s\d+/,'=s400'))+'" alt="" loading="lazy">'
       +'<span class="check-mark">✓</span>'
       +'</div>';
@@ -1807,11 +1795,86 @@ function renderPickerGrid(){
   document.getElementById('picker-title').textContent=d.selectedPhotoIds.size+'枚選択中';
 }
 
+function showPickerDetail(photoIdx){
+  var p=snsPostPhotos[photoIdx];
+  if(!p)return;
+  var d=snsPostData[pickerPostIdx];
+  var isSelected=d.selectedPhotoIds.has(photoIdx);
+
+  document.getElementById('picker-body').style.display='none';
+  var editor=document.getElementById('picker-editor');
+  editor.classList.add('active');
+
+  // Show photo detail with select/deselect + edit tools
+  var thumbLarge=(p.thumbnailLink||'').replace(/=s\d+/,'=s1200');
+  var h='<img src="'+escapeAttr(thumbLarge)+'" style="max-width:100%;max-height:45vh;border-radius:8px;display:block;margin:0 auto">';
+  h+='<div style="color:#fff;text-align:center;margin-top:10px;font-size:.9em">'+escapeHtml(p.name)+'</div>';
+  // Tags from description
+  var desc=p.description||'';
+  var tags=desc.match(/#\S+/g)||[];
+  if(tags.length){
+    h+='<div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-top:8px">';
+    for(var i=0;i<tags.length;i++)h+='<span class="ai-tag" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff">'+escapeHtml(tags[i])+'</span>';
+    h+='</div>';
+  }
+  // Select / Deselect button
+  h+='<div style="display:flex;gap:10px;justify-content:center;margin-top:16px">';
+  if(isSelected){
+    h+='<button onclick="togglePickerPhoto('+photoIdx+')" style="padding:10px 24px;border:none;border-radius:10px;background:rgba(255,255,255,.2);color:#fff;font-size:.9em;font-weight:600;cursor:pointer">選択を解除</button>';
+  }else{
+    h+='<button onclick="togglePickerPhoto('+photoIdx+')" style="padding:10px 24px;border:none;border-radius:10px;background:#a0522d;color:#fff;font-size:.9em;font-weight:600;cursor:pointer">✓ この写真を選択</button>';
+  }
+  h+='<button onclick="startEditing('+photoIdx+')" style="padding:10px 24px;border:none;border-radius:10px;background:rgba(255,255,255,.15);color:#fff;font-size:.9em;font-weight:600;cursor:pointer">✏️ 加工する</button>';
+  h+='</div>';
+
+  editor.innerHTML=h;
+}
+
 function togglePickerPhoto(photoIdx){
   var d=snsPostData[pickerPostIdx];
   if(d.selectedPhotoIds.has(photoIdx))d.selectedPhotoIds.delete(photoIdx);
   else d.selectedPhotoIds.add(photoIdx);
-  renderPickerGrid();
+  // Refresh detail view to update button state
+  showPickerDetail(photoIdx);
+}
+
+function startEditing(photoIdx){
+  editorPhotoIdx=photoIdx;
+  editorRotation=0;editorFlipped=false;editorCropRatio=0;
+
+  var p=snsPostPhotos[photoIdx];
+  var editor=document.getElementById('picker-editor');
+
+  // Load image via Drive API to avoid CORS
+  editor.innerHTML='<div style="color:#fff;text-align:center;padding:40px"><div class="spinner"></div><div style="margin-top:8px">画像を読み込み中...</div></div>';
+
+  fetch('https://www.googleapis.com/drive/v3/files/'+p.id+'?alt=media&supportsAllDrives=true',
+    {headers:{'Authorization':'Bearer '+accessToken}})
+  .then(function(r){return r.blob()})
+  .then(function(blob){
+    var url=URL.createObjectURL(blob);
+    var img=new Image();
+    img.onload=function(){
+      editorImg=img;
+      // Render editor UI
+      var h='<canvas id="picker-canvas" style="max-width:100%;max-height:45vh;border-radius:8px;background:#000"></canvas>';
+      h+='<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;justify-content:center">';
+      h+='<button onclick="editorRotate()" style="padding:8px 16px;border:none;border-radius:10px;background:rgba(255,255,255,.15);color:#fff;font-size:.85em;font-weight:600;cursor:pointer">↻ 回転</button>';
+      h+='<button onclick="editorFlip()" style="padding:8px 16px;border:none;border-radius:10px;background:rgba(255,255,255,.15);color:#fff;font-size:.85em;font-weight:600;cursor:pointer">↔ 反転</button>';
+      h+='<button onclick="editorCropSquare()" style="padding:8px 16px;border:none;border-radius:10px;background:rgba(255,255,255,.15);color:#fff;font-size:.85em;font-weight:600;cursor:pointer">◻ 正方形</button>';
+      h+='<button onclick="editorCrop169()" style="padding:8px 16px;border:none;border-radius:10px;background:rgba(255,255,255,.15);color:#fff;font-size:.85em;font-weight:600;cursor:pointer">▭ 16:9</button>';
+      h+='<button onclick="editorReset()" style="padding:8px 16px;border:none;border-radius:10px;background:rgba(255,255,255,.15);color:#fff;font-size:.85em;font-weight:600;cursor:pointer">↩ 戻す</button>';
+      h+='<button onclick="editorSave()" style="padding:8px 16px;border:none;border-radius:10px;background:#a0522d;color:#fff;font-size:.85em;font-weight:600;cursor:pointer">✓ 適用</button>';
+      h+='<button onclick="showPickerDetail('+editorPhotoIdx+')" style="padding:8px 16px;border:none;border-radius:10px;background:rgba(255,255,255,.15);color:#fff;font-size:.85em;font-weight:600;cursor:pointer">✕ キャンセル</button>';
+      h+='</div>';
+      editor.innerHTML=h;
+      drawEditor();
+    };
+    img.src=url;
+  })
+  .catch(function(){
+    editor.innerHTML='<div style="color:#fff;text-align:center;padding:40px">😥 画像を読み込めませんでした</div>';
+  });
 }
 
 function updateSnsPhotoPreview(postIdx){
@@ -1822,28 +1885,14 @@ function updateSnsPhotoPreview(postIdx){
   var h='';
   d.selectedPhotoIds.forEach(function(j){
     if(snsPostPhotos[j]&&snsPostPhotos[j].thumbnailLink){
-      h+='<img src="'+escapeAttr(snsPostPhotos[j].thumbnailLink)+'" class="selected" style="opacity:1;cursor:pointer" title="'+escapeAttr(snsPostPhotos[j].name)+'" onclick="openPhotoEditor('+postIdx+','+j+')">';
+      h+='<img src="'+escapeAttr(snsPostPhotos[j].thumbnailLink)+'" class="selected" style="opacity:1;cursor:pointer" title="'+escapeAttr(snsPostPhotos[j].name)+'">';
     }
   });
   if(grid)grid.innerHTML=h;
 }
 
 // ==================== Photo Editor ====================
-function openPhotoEditor(postIdx,photoIdx){
-  pickerPostIdx=postIdx;
-  editorPhotoIdx=photoIdx;
-  editorRotation=0;editorFlipped=false;editorCropRatio=0;
-  var overlay=document.getElementById('photo-picker');
-  if(!overlay.classList.contains('active')){overlay.classList.add('active');document.body.style.overflow='hidden';}
-  document.getElementById('picker-body').style.display='none';
-  document.getElementById('picker-editor').classList.add('active');
-
-  var p=snsPostPhotos[photoIdx];
-  var img=new Image();
-  img.crossOrigin='anonymous';
-  img.onload=function(){editorImg=img;drawEditor();};
-  img.src=p.thumbnailLink.replace(/=s\d+/,'=s1200');
-}
+// openPhotoEditor replaced by startEditing
 
 function drawEditor(){
   if(!editorImg)return;
@@ -1887,20 +1936,19 @@ function editorCrop169(){editorCropRatio=editorCropRatio===16/9?0:16/9;drawEdito
 function editorReset(){editorRotation=0;editorFlipped=false;editorCropRatio=0;drawEditor();}
 
 function editorSave(){
-  // Save edited image as blob and replace the photo's thumbnail
   var canvas=document.getElementById('picker-canvas');
   canvas.toBlob(function(blob){
     if(!blob)return;
     var url=URL.createObjectURL(blob);
     snsPostPhotos[editorPhotoIdx].thumbnailLink=url;
     snsPostPhotos[editorPhotoIdx]._editedBlob=blob;
-    editorCancel();
+    showPickerDetail(editorPhotoIdx);
     updateSnsPhotoPreview(pickerPostIdx);
     showToast('写真を加工しました');
   },'image/jpeg',0.9);
 }
 
-function editorCancel(){
+function editorBackToGrid(){
   document.getElementById('picker-editor').classList.remove('active');
   document.getElementById('picker-body').style.display='';
   renderPickerGrid();
@@ -1982,7 +2030,8 @@ function autoResize(el){
 
 function showPostMenu(idx){
   var menu=document.getElementById('sns-menu-'+idx);
-  menu.style.display=menu.style.display==='none'?'flex':'none';
+  var visible=menu.style.display==='flex';
+  menu.style.display=visible?'none':'flex';
 }
 async function rewriteSnsText(idx){
   var instruction=document.getElementById('sns-rewrite-'+idx).value.trim();
