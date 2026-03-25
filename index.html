@@ -4,222 +4,139 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Choreia Photos — 写真をDriveに一括転送</title>
-<meta name="description" content="写真を選んで共有ドライブに一括転送。選んで押すだけ。">
+<meta name="description" content="写真を選んで共有ドライブに一括転送。AIタグ付き。">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Photos">
 <meta name="theme-color" content="#a0522d">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; connect-src https://www.googleapis.com https://accounts.google.com https://oauth2.googleapis.com; frame-src https://accounts.google.com; img-src 'self' https://*.googleusercontent.com data: blob:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; connect-src https://www.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://generativelanguage.googleapis.com; frame-src https://accounts.google.com; img-src * data: blob:;">
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans JP", sans-serif;
-  background: #faf8f5; color: #2c2418; line-height: 1.6;
-  min-height: 100vh; -webkit-tap-highlight-color: transparent;
-}
-.container { max-width: 640px; margin: 0 auto; padding: 16px; }
-@media (max-width: 640px) { .container { padding-bottom: 100px; } }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;background:#faf8f5;color:#2c2418;line-height:1.6;min-height:100vh;-webkit-tap-highlight-color:transparent}
+.container{max-width:640px;margin:0 auto;padding:16px}
+@media(max-width:640px){.container{padding-bottom:100px}}
 
-.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-.header h1 { font-size: 1.3em; }
-.header h1 span { color: #a0522d; }
-.auth-area { display: flex; align-items: center; gap: 8px; font-size: 0.85em; }
-.auth-area img { width: 28px; height: 28px; border-radius: 50%; }
-.btn-google {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 16px 8px 12px; background: #fff; color: #3c4043;
-  border: 1px solid #dadce0; border-radius: 20px; cursor: pointer;
-  font-size: 13px; font-family: 'Google Sans', Roboto, -apple-system, sans-serif;
-  font-weight: 500; box-shadow: 0 1px 2px rgba(60,64,67,0.1);
-}
-.btn-google:active { background: #eee; }
-.btn-google svg { flex-shrink: 0; width: 18px; height: 18px; }
-.btn-signout {
-  padding: 4px 10px; background: #f3efe9; color: #8a7e6e;
-  border: 1px solid #d4cdc2; border-radius: 6px; cursor: pointer;
-  font-size: 0.8em; font-family: inherit;
-}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.header h1{font-size:1.3em}.header h1 span{color:#a0522d}
+.auth-area{display:flex;align-items:center;gap:8px;font-size:.85em}
+.auth-area img{width:28px;height:28px;border-radius:50%}
+.btn-google{display:inline-flex;align-items:center;gap:8px;padding:8px 16px 8px 12px;background:#fff;color:#3c4043;border:1px solid #dadce0;border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;box-shadow:0 1px 2px rgba(60,64,67,.1)}
+.btn-google:active{background:#eee}
+.btn-google svg{flex-shrink:0;width:18px;height:18px}
+.btn-signout{padding:4px 10px;background:#f3efe9;color:#8a7e6e;border:1px solid #d4cdc2;border-radius:6px;cursor:pointer;font-size:.8em;font-family:inherit}
 
-.card {
-  background: #fff; border-radius: 16px; padding: 20px;
-  margin-bottom: 16px; box-shadow: 0 1px 4px rgba(44,36,24,0.06);
-}
-.card h2 { font-size: 1.05em; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #a0522d; }
+.card{background:#fff;border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 1px 4px rgba(44,36,24,.06)}
+.card h2{font-size:1.05em;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #a0522d}
 
-.dest-bar {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 16px; background: #f5ece5; border-radius: 12px;
-  margin-bottom: 16px; font-size: 0.9em;
-}
-.dest-bar .icon { font-size: 1.3em; }
-.dest-bar .label { color: #8a7e6e; font-size: 0.8em; }
-.dest-bar .name { font-weight: 600; color: #5a3e28; }
-.dest-bar .admin-badge {
-  margin-left: auto; font-size: 0.7em; background: #a0522d;
-  color: #fff; padding: 2px 8px; border-radius: 10px;
-}
+/* Tabs */
+.tabs{display:flex;gap:0;margin-bottom:16px;background:#fff;border-radius:12px;padding:4px;box-shadow:0 1px 4px rgba(44,36,24,.06)}
+.tab{flex:1;padding:10px;text-align:center;border:none;background:none;border-radius:8px;font-size:.9em;font-weight:600;font-family:inherit;cursor:pointer;color:#8a7e6e;transition:all .2s}
+.tab.active{background:#a0522d;color:#fff}
 
-/* Upload area */
-.upload-area {
-  border: 2px dashed #d4cdc2; border-radius: 16px;
-  padding: 40px 20px; text-align: center; cursor: pointer;
-  transition: all 0.2s; background: #faf8f5;
-}
-.upload-area:hover, .upload-area.dragover { border-color: #a0522d; background: #fdf5f0; }
-.upload-area:active { transform: scale(0.98); }
-.upload-area .icon { font-size: 2.5em; margin-bottom: 8px; }
-.upload-area .title { font-size: 1em; font-weight: 600; margin-bottom: 4px; }
-.upload-area .desc { font-size: 0.8em; color: #8a7e6e; }
-input[type="file"] { display: none; }
+.dest-bar{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#f5ece5;border-radius:12px;margin-bottom:16px;font-size:.9em}
+.dest-bar .icon{font-size:1.3em}
+.dest-bar .label{color:#8a7e6e;font-size:.8em}
+.dest-bar .name{font-weight:600;color:#5a3e28}
+.dest-bar .admin-badge{margin-left:auto;font-size:.7em;background:#a0522d;color:#fff;padding:2px 8px;border-radius:10px}
 
-/* Folder name input */
-.folder-input-group { margin-bottom: 16px; }
-.folder-input-group label { font-size: 0.85em; color: #5a5044; font-weight: 600; display: block; margin-bottom: 6px; }
-.folder-input {
-  width: 100%; padding: 10px 14px; border: 2px solid #ece6de;
-  border-radius: 10px; font-size: 0.95em; font-family: inherit;
-  background: #faf8f5; transition: border-color 0.2s;
-}
-.folder-input:focus { border-color: #a0522d; outline: none; background: #fff; }
+/* Upload */
+.upload-area{border:2px dashed #d4cdc2;border-radius:16px;padding:40px 20px;text-align:center;cursor:pointer;background:#faf8f5;transition:all .2s}
+.upload-area:hover,.upload-area.dragover{border-color:#a0522d;background:#fdf5f0}
+.upload-area:active{transform:scale(.98)}
+.upload-area .icon{font-size:2.5em;margin-bottom:8px}
+.upload-area .title{font-size:1em;font-weight:600;margin-bottom:4px}
+.upload-area .desc{font-size:.8em;color:#8a7e6e}
+input[type="file"]{display:none}
 
-/* Photo preview grid */
-.preview-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  gap: 6px; margin-bottom: 16px;
-}
-.preview-item {
-  position: relative; aspect-ratio: 1; border-radius: 8px;
-  overflow: hidden; background: #f5ece5;
-}
-.preview-item img { width: 100%; height: 100%; object-fit: cover; }
-.preview-item .remove {
-  position: absolute; top: 2px; right: 2px;
-  width: 22px; height: 22px; border-radius: 50%;
-  background: rgba(0,0,0,0.5); color: #fff;
-  border: none; cursor: pointer; font-size: 12px;
-  display: flex; align-items: center; justify-content: center;
-}
-.preview-count {
-  font-size: 0.85em; color: #8a7e6e; margin-bottom: 12px;
-}
+/* Preview grid */
+.preview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;margin-bottom:12px}
+.preview-item{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;background:#f5ece5}
+.preview-item img{width:100%;height:100%;object-fit:cover}
+.preview-item .remove{position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.5);color:#fff;border:none;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center}
+.preview-count{font-size:.85em;color:#8a7e6e;margin-bottom:8px}
+
+/* AI analysis */
+.ai-section{margin-top:16px;padding:16px;background:#fdf5f0;border-radius:12px;border:1px solid #ece6de}
+.ai-section h3{font-size:.9em;color:#a0522d;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.ai-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.ai-tag{display:inline-block;background:#fff;border:1px solid #d4cdc2;padding:3px 10px;border-radius:16px;font-size:.8em;color:#5a3e28}
+.ai-location{font-size:.85em;color:#5a5044;margin-bottom:8px}
+.ai-folder-suggest{font-size:.9em;font-weight:600;color:#5a3e28;margin-bottom:8px}
+
+/* Folder selection */
+.folder-options{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.folder-option{display:flex;align-items:center;gap:10px;padding:10px 14px;border:2px solid #ece6de;border-radius:12px;cursor:pointer}
+.folder-option:active{transform:scale(.98)}
+.folder-option.selected{border-color:#a0522d;background:#fdf5f0}
+.folder-option .icon{font-size:1.1em}
+.folder-option .name{font-size:.9em;flex:1}
+.folder-option .check{width:20px;height:20px;border-radius:50%;border:2px solid #d4cdc2;font-size:10px;display:flex;align-items:center;justify-content:center;color:transparent}
+.folder-option.selected .check{background:#a0522d;border-color:#a0522d;color:#fff}
+.folder-input{width:100%;padding:10px 14px;border:2px solid #ece6de;border-radius:10px;font-size:.95em;font-family:inherit;background:#faf8f5;margin-top:6px}
+.folder-input:focus{border-color:#a0522d;outline:none;background:#fff}
+
+/* Search */
+.search-bar{display:flex;gap:8px;margin-bottom:16px}
+.search-input{flex:1;padding:10px 14px;border:2px solid #ece6de;border-radius:12px;font-size:.95em;font-family:inherit;background:#fff}
+.search-input:focus{border-color:#a0522d;outline:none}
+.search-btn{padding:10px 16px;background:#a0522d;color:#fff;border:none;border-radius:12px;font-weight:600;font-family:inherit;cursor:pointer}
+.search-btn:active{opacity:.85}
+.search-results{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.search-result{border-radius:10px;overflow:hidden;background:#fff;border:1px solid #ece6de;cursor:pointer}
+.search-result img{width:100%;aspect-ratio:1;object-fit:cover}
+.search-result .info{padding:8px;font-size:.75em;color:#5a5044}
+.search-result .info .name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.search-result .info .tags{color:#8a7e6e;margin-top:2px}
 
 /* Buttons */
-.btn-primary {
-  display: block; width: 100%; padding: 14px; border: none;
-  border-radius: 14px; font-size: 1em; font-weight: 700;
-  font-family: inherit; color: #fff;
-  background: linear-gradient(135deg, #a0522d 0%, #7a3d22 100%);
-  cursor: pointer; box-shadow: 0 2px 8px rgba(122,61,34,0.25);
-}
-.btn-primary:active:not(:disabled) { opacity: 0.85; }
-.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
-.btn-secondary {
-  display: block; width: 100%; padding: 12px; border: none;
-  border-radius: 12px; font-size: 0.95em; font-weight: 600;
-  font-family: inherit; background: #f5ece5; color: #5a3e28;
-  cursor: pointer; margin-top: 8px;
-}
-.btn-secondary:active { background: #ece6de; }
-.btn-text {
-  background: none; border: none; color: #a0522d; font-size: 0.85em;
-  font-weight: 600; cursor: pointer; padding: 4px 0; font-family: inherit;
-}
+.btn-primary{display:block;width:100%;padding:14px;border:none;border-radius:14px;font-size:1em;font-weight:700;font-family:inherit;color:#fff;background:linear-gradient(135deg,#a0522d,#7a3d22);cursor:pointer;box-shadow:0 2px 8px rgba(122,61,34,.25)}
+.btn-primary:active:not(:disabled){opacity:.85}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-secondary{display:block;width:100%;padding:12px;border:none;border-radius:12px;font-size:.95em;font-weight:600;font-family:inherit;background:#f5ece5;color:#5a3e28;cursor:pointer;margin-top:8px}
+.btn-secondary:active{background:#ece6de}
+.btn-text{background:none;border:none;color:#a0522d;font-size:.85em;font-weight:600;cursor:pointer;padding:4px 0;font-family:inherit}
 
-/* Footer action */
-.footer-action {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  padding: 12px 16px;
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
-  background: rgba(250,248,245,0.92);
-  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid #ece6de; z-index: 100; display: none;
-}
-.footer-action .btn-primary { max-width: 640px; margin: 0 auto; }
+.footer-action{position:fixed;bottom:0;left:0;right:0;padding:12px 16px;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 12px);background:rgba(250,248,245,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid #ece6de;z-index:100;display:none}
+.footer-action .btn-primary{max-width:640px;margin:0 auto}
 
 /* Modal */
-.modal-overlay {
-  display: none; position: fixed; inset: 0;
-  background: rgba(44,36,24,0.4);
-  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-  z-index: 200; align-items: flex-end; justify-content: center;
-}
-.modal-overlay.active { display: flex; }
-.modal-sheet {
-  background: #fff; border-radius: 20px 20px 0 0;
-  width: 100%; max-width: 500px; padding: 20px;
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
-  animation: slideUp 0.3s ease;
-}
-@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-.modal-handle { width: 36px; height: 4px; background: #d4cdc2; border-radius: 2px; margin: 0 auto 16px; }
-.modal-title { font-size: 1.05em; font-weight: 700; text-align: center; margin-bottom: 16px; }
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(44,36,24,.4);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:200;align-items:flex-end;justify-content:center}
+.modal-overlay.active{display:flex}
+.modal-sheet{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:20px;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 20px);animation:slideUp .3s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:36px;height:4px;background:#d4cdc2;border-radius:2px;margin:0 auto 16px}
+.modal-title{font-size:1.05em;font-weight:700;text-align:center;margin-bottom:16px}
+.progress-ring{width:110px;height:110px;margin:0 auto 12px;position:relative}
+.progress-ring svg{transform:rotate(-90deg);width:110px;height:110px}
+.progress-ring .bg{fill:none;stroke:#f5ece5;stroke-width:7}
+.progress-ring .fg{fill:none;stroke:#a0522d;stroke-width:7;stroke-linecap:round;stroke-dasharray:314.16;stroke-dashoffset:314.16;transition:stroke-dashoffset .3s}
+.progress-pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.6em;font-weight:700;color:#a0522d}
+.progress-file{text-align:center;font-size:.8em;color:#8a7e6e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;margin:0 auto 2px}
+.progress-detail{text-align:center;font-size:.85em;color:#5a5044}
+.done-icon{font-size:3em;text-align:center;margin-bottom:8px}
+.done-msg{font-size:1.15em;font-weight:700;text-align:center;margin-bottom:4px}
+.done-detail{font-size:.85em;color:#8a7e6e;text-align:center;margin-bottom:16px}
 
-/* Progress ring */
-.progress-ring { width: 110px; height: 110px; margin: 0 auto 12px; position: relative; }
-.progress-ring svg { transform: rotate(-90deg); width: 110px; height: 110px; }
-.progress-ring .bg { fill: none; stroke: #f5ece5; stroke-width: 7; }
-.progress-ring .fg {
-  fill: none; stroke: #a0522d; stroke-width: 7; stroke-linecap: round;
-  stroke-dasharray: 314.16; stroke-dashoffset: 314.16; transition: stroke-dashoffset 0.3s;
-}
-.progress-pct {
-  position: absolute; inset: 0; display: flex; align-items: center;
-  justify-content: center; font-size: 1.6em; font-weight: 700; color: #a0522d;
-}
-.progress-file {
-  text-align: center; font-size: 0.8em; color: #8a7e6e;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  max-width: 280px; margin: 0 auto 2px;
-}
-.progress-detail { text-align: center; font-size: 0.85em; color: #5a5044; }
-
-.done-icon { font-size: 3em; text-align: center; margin-bottom: 8px; }
-.done-msg { font-size: 1.15em; font-weight: 700; text-align: center; margin-bottom: 4px; }
-.done-detail { font-size: 0.85em; color: #8a7e6e; text-align: center; margin-bottom: 16px; }
-
-.loading-state { text-align: center; padding: 48px 20px; color: #8a7e6e; }
-.spinner {
-  display: inline-block; width: 24px; height: 24px;
-  border: 3px solid #ece6de; border-top-color: #a0522d;
-  border-radius: 50%; animation: spin 0.7s linear infinite; margin-bottom: 8px;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.empty-state { text-align: center; padding: 40px 16px; color: #8a7e6e; }
-.empty-state .icon { font-size: 2.5em; margin-bottom: 8px; }
-
-.toast {
-  position: fixed; top: 20px; left: 50%; z-index: 300;
-  transform: translateX(-50%) translateY(-80px);
-  background: #2c2418; color: #fff; padding: 10px 20px;
-  border-radius: 10px; font-size: 0.85em;
-  transition: transform 0.3s ease; pointer-events: none;
-  max-width: 90%; text-align: center;
-}
-.toast.show { transform: translateX(-50%) translateY(0); }
-
-.footer-info { text-align: center; padding: 16px; font-size: 0.75em; color: #b0a89e; }
+.loading-state{text-align:center;padding:48px 20px;color:#8a7e6e}
+.spinner{display:inline-block;width:24px;height:24px;border:3px solid #ece6de;border-top-color:#a0522d;border-radius:50%;animation:spin .7s linear infinite;margin-bottom:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;top:20px;left:50%;z-index:300;transform:translateX(-50%) translateY(-80px);background:#2c2418;color:#fff;padding:10px 20px;border-radius:10px;font-size:.85em;transition:transform .3s ease;pointer-events:none;max-width:90%;text-align:center}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.footer-info{text-align:center;padding:16px;font-size:.75em;color:#b0a89e}
 
 /* Setup */
-.drive-list, .folder-list-setup { display: flex; flex-direction: column; gap: 6px; }
-.drive-item, .folder-item-setup {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 14px; border: 2px solid #ece6de; border-radius: 12px;
-  cursor: pointer; -webkit-user-select: none; user-select: none;
-}
-.drive-item:active, .folder-item-setup:active { transform: scale(0.98); }
-.drive-item.selected, .folder-item-setup.selected { border-color: #a0522d; background: #fdf5f0; }
-.drive-item .icon, .folder-item-setup .icon { font-size: 1.2em; }
-.drive-item .name, .folder-item-setup .name { font-size: 0.95em; font-weight: 500; flex: 1; }
-.folder-item-setup .arrow { color: #c4a882; font-size: 1.1em; margin-left: auto; padding: 4px 8px; }
-.breadcrumb {
-  display: flex; align-items: center; gap: 4px; margin-bottom: 10px;
-  font-size: 0.8em; color: #8a7e6e; flex-wrap: wrap;
-}
-.breadcrumb a { color: #a0522d; text-decoration: none; cursor: pointer; }
+.drive-list,.folder-list-setup{display:flex;flex-direction:column;gap:6px}
+.drive-item,.folder-item-setup{display:flex;align-items:center;gap:10px;padding:12px 14px;border:2px solid #ece6de;border-radius:12px;cursor:pointer}
+.drive-item:active,.folder-item-setup:active{transform:scale(.98)}
+.drive-item.selected,.folder-item-setup.selected{border-color:#a0522d;background:#fdf5f0}
+.drive-item .icon,.folder-item-setup .icon{font-size:1.2em}
+.drive-item .name,.folder-item-setup .name{font-size:.95em;font-weight:500;flex:1}
+.folder-item-setup .arrow{color:#c4a882;font-size:1.1em;margin-left:auto;padding:4px 8px}
+.breadcrumb{display:flex;align-items:center;gap:4px;margin-bottom:10px;font-size:.8em;color:#8a7e6e;flex-wrap:wrap}
+.breadcrumb a{color:#a0522d;text-decoration:none;cursor:pointer}
 </style>
 </head>
 <body>
-
 <div class="container">
   <div class="header">
     <h1><span>Choreia</span> Photos</h1>
@@ -240,91 +157,121 @@ input[type="file"] { display: none; }
 
   <!-- Welcome -->
   <div id="view-welcome">
-    <div class="card" style="text-align:center; padding:48px 20px;">
-      <div style="font-size:3em; margin-bottom:12px;">📸</div>
-      <h2 style="border:none; font-size:1.2em; margin-bottom:8px;">写真をDriveに一括転送</h2>
-      <p style="color:#5a5044; font-size:0.9em; margin-bottom:20px;">
-        写真を選んで共有ドライブに<br>まとめてアップロード
-      </p>
-      <button class="btn-google" onclick="handleSignIn()" style="margin:0 auto;">
+    <div class="card" style="text-align:center;padding:48px 20px">
+      <div style="font-size:3em;margin-bottom:12px">📸</div>
+      <h2 style="border:none;font-size:1.2em;margin-bottom:8px">写真をDriveに一括転送</h2>
+      <p style="color:#5a5044;font-size:.9em;margin-bottom:4px">AIが自動でタグ付け・フォルダ名提案</p>
+      <p style="color:#8a7e6e;font-size:.8em;margin-bottom:20px">キーワード・位置情報で横断検索</p>
+      <button class="btn-google" onclick="handleSignIn()" style="margin:0 auto">
         <svg viewBox="0 0 18 18" style="width:18px;height:18px"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 6.29C4.672 4.163 6.656 2.58 9 3.58z"/></svg>
         Googleでログイン
       </button>
     </div>
   </div>
 
-  <!-- Loading -->
-  <div id="view-loading" style="display:none">
-    <div class="loading-state"><div class="spinner"></div><div>設定を確認中...</div></div>
-  </div>
+  <div id="view-loading" style="display:none"><div class="loading-state"><div class="spinner"></div><div>設定を確認中...</div></div></div>
 
   <!-- Setup -->
   <div id="view-setup" style="display:none">
     <div class="card">
       <h2>初期セットアップ</h2>
-      <p style="color:#5a5044; font-size:0.9em; margin-bottom:16px;">
-        <strong id="setup-domain"></strong> の最初のユーザーです。<br>
-        写真の転送先となる共有ドライブとフォルダを選択してください。
-      </p>
+      <p style="color:#5a5044;font-size:.9em;margin-bottom:16px"><strong id="setup-domain"></strong> の最初のユーザーです。転送先を選択してください。</p>
       <div id="setup-step1">
-        <h3 style="font-size:0.9em; color:#8a7e6e; margin-bottom:8px;">① 共有ドライブを選択</h3>
+        <h3 style="font-size:.9em;color:#8a7e6e;margin-bottom:8px">① 共有ドライブを選択</h3>
         <div id="setup-drives"><div class="loading-state" style="padding:24px"><div class="spinner"></div><div>読み込み中...</div></div></div>
       </div>
-      <div id="setup-step2" style="display:none; margin-top:16px;">
-        <h3 style="font-size:0.9em; color:#8a7e6e; margin-bottom:8px;">② フォルダを選択</h3>
+      <div id="setup-step2" style="display:none;margin-top:16px">
+        <h3 style="font-size:.9em;color:#8a7e6e;margin-bottom:8px">② フォルダを選択</h3>
         <div id="setup-breadcrumb" class="breadcrumb"></div>
-        <div id="setup-folders"><div class="loading-state" style="padding:24px"><div class="spinner"></div><div>読み込み中...</div></div></div>
-        <button class="btn-primary" id="setup-confirm-btn" style="margin-top:16px;" disabled onclick="confirmSetup()">フォルダを選択してください</button>
+        <div id="setup-folders"></div>
+        <button class="btn-primary" id="setup-confirm-btn" style="margin-top:16px" disabled onclick="confirmSetup()">フォルダを選択</button>
       </div>
     </div>
   </div>
 
   <!-- Main -->
   <div id="view-main" style="display:none">
-    <div class="dest-bar" id="dest-bar">
+    <div class="dest-bar">
       <span class="icon">📁</span>
       <div><div class="label">転送先</div><div class="name" id="dest-name"></div></div>
       <span class="admin-badge" id="admin-badge" style="display:none">管理者</span>
     </div>
-    <div id="admin-actions" style="display:none; margin-bottom:12px; text-align:right;">
+    <div id="admin-actions" style="display:none;margin-bottom:8px;text-align:right">
       <button class="btn-text" onclick="showSetup()">転送先を変更</button>
     </div>
 
-    <div class="card">
-      <h2>写真をアップロード</h2>
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" id="tab-upload" onclick="switchTab('upload')">📤 アップロード</button>
+      <button class="tab" id="tab-search" onclick="switchTab('search')">🔍 検索</button>
+    </div>
 
-      <!-- Folder name -->
-      <div class="folder-input-group">
-        <label>フォルダ名（Driveに作成されます）</label>
-        <input type="text" class="folder-input" id="folder-name" placeholder="例: 202603 静岡大学 浜松キャンパス" oninput="updateTransferBtn()">
+    <!-- Upload tab -->
+    <div id="panel-upload">
+      <div class="card">
+        <h2>① 写真を選択</h2>
+        <div class="upload-area" id="upload-area" onclick="document.getElementById('file-input').click()">
+          <div class="icon">📷</div>
+          <div class="title">写真を選択</div>
+          <div class="desc">タップしてカメラロールから選択<br>複数選択OK</div>
+        </div>
+        <input type="file" id="file-input" accept="image/*,video/*" multiple onchange="handleFiles(this.files)">
+        <div id="preview-section" style="display:none;margin-top:16px">
+          <div class="preview-count" id="preview-count"></div>
+          <div class="preview-grid" id="preview-grid"></div>
+          <button class="btn-secondary" onclick="document.getElementById('file-input').click()">写真を追加</button>
+        </div>
       </div>
 
-      <!-- Upload area -->
-      <div class="upload-area" id="upload-area" onclick="document.getElementById('file-input').click()">
-        <div class="icon">📷</div>
-        <div class="title">写真を選択</div>
-        <div class="desc">タップしてカメラロールから選択<br>複数選択OK</div>
+      <!-- AI analysis (shown after photos selected) -->
+      <div class="card" id="ai-card" style="display:none">
+        <h2>② AI分析結果</h2>
+        <div id="ai-loading" style="display:none"><div class="loading-state" style="padding:16px"><div class="spinner"></div><div>Geminiが写真を分析中...</div></div></div>
+        <div id="ai-results" style="display:none">
+          <div class="ai-section">
+            <h3>🏷️ タグ</h3>
+            <div class="ai-tags" id="ai-tags"></div>
+            <div class="ai-location" id="ai-location"></div>
+            <h3 style="margin-top:12px">📁 フォルダ名の提案</h3>
+            <div class="ai-folder-suggest" id="ai-folder-suggest"></div>
+          </div>
+        </div>
       </div>
-      <input type="file" id="file-input" accept="image/*,video/*" multiple onchange="handleFiles(this.files)">
 
-      <!-- Preview -->
-      <div id="preview-section" style="display:none; margin-top:16px;">
-        <div class="preview-count" id="preview-count"></div>
-        <div class="preview-grid" id="preview-grid"></div>
-        <button class="btn-secondary" onclick="document.getElementById('file-input').click()">写真を追加</button>
+      <!-- Folder selection -->
+      <div class="card" id="folder-card" style="display:none">
+        <h2>③ 保存先フォルダ</h2>
+        <div class="folder-options" id="folder-options"></div>
+        <div id="custom-folder-area" style="display:none;margin-top:8px">
+          <input type="text" class="folder-input" id="custom-folder-name" placeholder="フォルダ名を入力" oninput="updateTransferBtn()">
+        </div>
+        <div id="existing-folder-area" style="display:none;margin-top:8px">
+          <div id="existing-folders" class="folder-list-setup"></div>
+        </div>
       </div>
     </div>
 
-    <div class="footer-info">フォルダ名で共有ドライブにサブフォルダが作成されます</div>
+    <!-- Search tab -->
+    <div id="panel-search" style="display:none">
+      <div class="card">
+        <h2>写真を検索</h2>
+        <div class="search-bar">
+          <input type="text" class="search-input" id="search-query" placeholder="キーワード or 場所名（例: りんご, 静岡）" onkeydown="if(event.key==='Enter')doSearch()">
+          <button class="search-btn" onclick="doSearch()">検索</button>
+        </div>
+        <div id="search-loading" style="display:none"><div class="loading-state" style="padding:16px"><div class="spinner"></div><div>検索中...</div></div></div>
+        <div id="search-results"></div>
+        <div id="search-empty" style="display:none" class="loading-state">タグやキーワードで写真を横断検索できます</div>
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- Transfer button -->
 <div class="footer-action" id="footer-action">
-  <button class="btn-primary" id="transfer-btn" disabled onclick="startUpload()">写真とフォルダ名を入力してください</button>
+  <button class="btn-primary" id="transfer-btn" disabled onclick="startUpload()">写真を選択してください</button>
 </div>
 
-<!-- Progress modal -->
+<!-- Modal -->
 <div class="modal-overlay" id="modal">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
@@ -345,421 +292,389 @@ input[type="file"] { display: none; }
     </div>
   </div>
 </div>
-
 <div class="toast" id="toast"></div>
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 // ==================== Config ====================
-var CLIENT_ID = '595564106580-hsrunbvfacmr23d2jopl462taqilip75.apps.googleusercontent.com';
-var SCOPES = 'https://www.googleapis.com/auth/drive';
-var CONFIG_FILENAME = 'choreia-photos-config.json';
-
-var BLOCKED_DOMAINS = [
-  'gmail.com','googlemail.com','yahoo.co.jp','yahoo.com','hotmail.com',
-  'outlook.com','outlook.jp','icloud.com','me.com','mac.com',
-  'aol.com','protonmail.com','zoho.com','yandex.com','mail.com',
-  'gmx.com','live.com','live.jp','msn.com','nifty.com',
-  'biglobe.ne.jp','ocn.ne.jp','plala.or.jp','so-net.ne.jp',
-];
+var CLIENT_ID='595564106580-hsrunbvfacmr23d2jopl462taqilip75.apps.googleusercontent.com';
+var SCOPES='https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/generative-language.retriever';
+var CONFIG_FILENAME='choreia-photos-config.json';
+var BLOCKED_DOMAINS=['gmail.com','googlemail.com','yahoo.co.jp','yahoo.com','hotmail.com','outlook.com','outlook.jp','icloud.com','me.com','mac.com','aol.com','protonmail.com','zoho.com','live.com','live.jp','msn.com','nifty.com','biglobe.ne.jp','ocn.ne.jp'];
 
 // ==================== State ====================
-var tokenClient = null;
-var accessToken = null;
-var currentUser = { email: '', name: '', domain: '', photo: '' };
-var orgConfig = null;
-var selectedFiles = [];
-
-// Setup state
-var setupDriveId = '';
-var setupDriveName = '';
-var setupFolderId = '';
-var setupFolderName = '';
-var setupFolderPath = [];
+var tokenClient=null,accessToken=null;
+var currentUser={email:'',name:'',domain:'',photo:''};
+var orgConfig=null;
+var selectedFiles=[];
+var aiAnalysis=null; // {tags:[], location:'', folderSuggestion:'', fileAnalyses:[]}
+var chosenFolderMode='suggest'; // 'suggest','custom','existing'
+var chosenFolderId='';
+var setupDriveId='',setupDriveName='',setupFolderId='',setupFolderName='';
+var setupFolderPath=[];
 
 // ==================== Auth ====================
-function initGIS() {
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID, scope: SCOPES, callback: onTokenResponse,
-  });
-  var saved = sessionStorage.getItem('choreia_photos_token');
-  if (saved) { accessToken = saved; restoreSession(); }
+function initGIS(){
+  tokenClient=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPES,callback:onTokenResponse});
+  var saved=sessionStorage.getItem('choreia_photos_token');
+  if(saved){accessToken=saved;restoreSession();}
 }
-
-async function restoreSession() {
+async function restoreSession(){
   showView('loading');
-  try {
-    var about = await apiFetch('https://www.googleapis.com/drive/v3/about?fields=user');
+  try{
+    var about=await apiFetch('https://www.googleapis.com/drive/v3/about?fields=user');
     setUser(about.user);
-    if (isBlockedDomain(currentUser.domain)) {
-      accessToken = null; sessionStorage.removeItem('choreia_photos_token');
-      showView('welcome'); return;
-    }
-    showLoggedIn();
-    await findConfig();
-  } catch(e) {
-    accessToken = null; sessionStorage.removeItem('choreia_photos_token');
-    showView('welcome');
-  }
+    if(isBlockedDomain(currentUser.domain)){accessToken=null;sessionStorage.removeItem('choreia_photos_token');showView('welcome');return;}
+    showLoggedIn();await findConfig();
+  }catch(e){accessToken=null;sessionStorage.removeItem('choreia_photos_token');showView('welcome');}
 }
-
-async function onTokenResponse(resp) {
-  if (resp.error) { showToast('ログインに失敗しました'); return; }
-  accessToken = resp.access_token;
-  sessionStorage.setItem('choreia_photos_token', accessToken);
+async function onTokenResponse(resp){
+  if(resp.error){showToast('ログインに失敗しました');return;}
+  accessToken=resp.access_token;sessionStorage.setItem('choreia_photos_token',accessToken);
   showView('loading');
-  try {
-    var about = await apiFetch('https://www.googleapis.com/drive/v3/about?fields=user');
+  try{
+    var about=await apiFetch('https://www.googleapis.com/drive/v3/about?fields=user');
     setUser(about.user);
-    if (isBlockedDomain(currentUser.domain)) {
-      showToast('組織アカウント（会社ドメイン）でログインしてください');
-      handleSignOut(); return;
-    }
-    showLoggedIn();
-    await findConfig();
-  } catch(e) { showToast('初期化エラー: ' + e.message); showView('welcome'); }
+    if(isBlockedDomain(currentUser.domain)){showToast('組織アカウントでログインしてください');handleSignOut();return;}
+    showLoggedIn();await findConfig();
+  }catch(e){showToast('エラー: '+e.message);showView('welcome');}
 }
-
-function setUser(user) {
-  currentUser.email = user.emailAddress || '';
-  currentUser.name = user.displayName || currentUser.email;
-  currentUser.domain = currentUser.email.split('@')[1] || '';
-  currentUser.photo = user.photoLink || '';
+function setUser(u){currentUser.email=u.emailAddress||'';currentUser.name=u.displayName||currentUser.email;currentUser.domain=currentUser.email.split('@')[1]||'';currentUser.photo=u.photoLink||'';}
+function showLoggedIn(){
+  document.getElementById('user-name').textContent=currentUser.name;
+  var av=document.getElementById('user-avatar');
+  if(currentUser.photo){av.src=currentUser.photo;av.style.display='';}else{av.style.display='none';}
+  document.getElementById('auth-out').style.display='none';document.getElementById('auth-in').style.display='flex';
 }
-
-function showLoggedIn() {
-  document.getElementById('user-name').textContent = currentUser.name;
-  var av = document.getElementById('user-avatar');
-  if (currentUser.photo) { av.src = currentUser.photo; av.style.display = ''; }
-  else { av.style.display = 'none'; }
-  document.getElementById('auth-out').style.display = 'none';
-  document.getElementById('auth-in').style.display = 'flex';
-}
-
-function handleSignIn() {
-  if (!tokenClient) { showToast('Google認証の準備中です'); return; }
-  tokenClient.requestAccessToken({ prompt: 'consent' });
-}
-
-function handleSignOut() {
-  if (accessToken) google.accounts.oauth2.revoke(accessToken);
-  accessToken = null;
-  sessionStorage.removeItem('choreia_photos_token');
-  orgConfig = null; selectedFiles = [];
-  document.getElementById('auth-out').style.display = '';
-  document.getElementById('auth-in').style.display = 'none';
-  document.getElementById('footer-action').style.display = 'none';
-  showView('welcome');
+function handleSignIn(){if(!tokenClient){showToast('準備中');return;}tokenClient.requestAccessToken({prompt:'consent'});}
+function handleSignOut(){
+  if(accessToken)google.accounts.oauth2.revoke(accessToken);
+  accessToken=null;sessionStorage.removeItem('choreia_photos_token');
+  orgConfig=null;selectedFiles=[];aiAnalysis=null;
+  document.getElementById('auth-out').style.display='';document.getElementById('auth-in').style.display='none';
+  document.getElementById('footer-action').style.display='none';showView('welcome');
 }
 
 // ==================== Views ====================
-function showView(name) {
-  ['welcome','loading','setup','main'].forEach(function(v) {
-    var el = document.getElementById('view-' + v);
-    if (el) el.style.display = (v === name) ? '' : 'none';
-  });
-  document.getElementById('footer-action').style.display = (name === 'main') ? '' : 'none';
+function showView(name){
+  ['welcome','loading','setup','main'].forEach(function(v){var el=document.getElementById('view-'+v);if(el)el.style.display=(v===name)?'':'none';});
+  document.getElementById('footer-action').style.display=(name==='main')?'':'none';
+}
+function switchTab(tab){
+  document.getElementById('tab-upload').classList.toggle('active',tab==='upload');
+  document.getElementById('tab-search').classList.toggle('active',tab==='search');
+  document.getElementById('panel-upload').style.display=tab==='upload'?'':'none';
+  document.getElementById('panel-search').style.display=tab==='search'?'':'none';
+  document.getElementById('footer-action').style.display=tab==='upload'?'':'none';
+  if(tab==='search')document.getElementById('search-query').focus();
 }
 
 // ==================== Config ====================
-async function findConfig() {
-  var query = "name='" + CONFIG_FILENAME + "' and trashed=false";
-  try {
-    var data = await apiFetch('https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(query)
-      + '&corpora=allDrives&includeItemsFromAllDrives=true&supportsAllDrives=true&fields=files(id,name)');
-    var files = data.files || [];
-    for (var i = 0; i < files.length; i++) {
-      try {
-        var content = await apiFetch('https://www.googleapis.com/drive/v3/files/' + files[i].id + '?alt=media&supportsAllDrives=true');
-        if (content.domain === currentUser.domain) {
-          orgConfig = content; orgConfig.configFileId = files[i].id;
-          showMainView(); return;
-        }
-      } catch(e) {}
+async function findConfig(){
+  try{
+    var data=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("name='"+CONFIG_FILENAME+"' and trashed=false")+'&corpora=allDrives&includeItemsFromAllDrives=true&supportsAllDrives=true&fields=files(id)');
+    for(var i=0;i<(data.files||[]).length;i++){
+      try{var c=await apiFetch('https://www.googleapis.com/drive/v3/files/'+data.files[i].id+'?alt=media&supportsAllDrives=true');
+        if(c.domain===currentUser.domain){orgConfig=c;orgConfig.configFileId=data.files[i].id;showMainView();return;}
+      }catch(e){}
     }
-  } catch(e) {}
+  }catch(e){}
   showSetup();
 }
 
 // ==================== Setup ====================
-function showSetup() {
-  showView('setup');
-  document.getElementById('setup-domain').textContent = currentUser.domain;
-  document.getElementById('setup-step2').style.display = 'none';
-  loadSharedDrives();
+function showSetup(){showView('setup');document.getElementById('setup-domain').textContent=currentUser.domain;document.getElementById('setup-step2').style.display='none';loadSharedDrives();}
+async function loadSharedDrives(){
+  var c=document.getElementById('setup-drives');c.innerHTML='<div class="loading-state" style="padding:24px"><div class="spinner"></div><div>読み込み中...</div></div>';
+  try{var d=await apiFetch('https://www.googleapis.com/drive/v3/drives?pageSize=100');var dr=d.drives||[];
+    if(!dr.length){c.innerHTML='<p style="color:#8a7e6e">共有ドライブなし</p>';return;}
+    var h='<div class="drive-list">';for(var i=0;i<dr.length;i++)h+='<div class="drive-item" data-id="'+dr[i].id+'" data-name="'+escapeAttr(dr[i].name)+'" onclick="selectDrive(this)"><span class="icon">💾</span><span class="name">'+escapeHtml(dr[i].name)+'</span></div>';
+    c.innerHTML=h+'</div>';
+  }catch(e){c.innerHTML='<p style="color:#c0392b">エラー</p>';}
+}
+function selectDrive(el){document.querySelectorAll('.drive-item').forEach(function(x){x.classList.remove('selected')});el.classList.add('selected');setupDriveId=el.getAttribute('data-id');setupDriveName=el.getAttribute('data-name');setupFolderId=setupDriveId;setupFolderName=setupDriveName;setupFolderPath=[{id:setupDriveId,name:setupDriveName}];document.getElementById('setup-step2').style.display='';loadSetupFolders(setupDriveId);updateSetupBtn();}
+async function loadSetupFolders(pid){
+  var c=document.getElementById('setup-folders');c.innerHTML='<div class="loading-state" style="padding:24px"><div class="spinner"></div></div>';updateSetupBreadcrumb();
+  try{var d=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("'"+pid+"' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false")+'&driveId='+setupDriveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true&fields=files(id,name)&orderBy=name&pageSize=100');
+    var f=d.files||[];if(!f.length){c.innerHTML='<p style="color:#8a7e6e;font-size:.85em;padding:12px">サブフォルダなし</p>';return;}
+    var h='<div class="folder-list-setup">';for(var i=0;i<f.length;i++)h+='<div class="folder-item-setup" data-id="'+f[i].id+'" data-name="'+escapeAttr(f[i].name)+'" onclick="selectSetupFolder(this)"><span class="icon">📁</span><span class="name">'+escapeHtml(f[i].name)+'</span><span class="arrow" onclick="event.stopPropagation();openSetupFolder(\''+f[i].id+'\',\''+escapeAttr(f[i].name)+'\')">▶</span></div>';
+    c.innerHTML=h+'</div>';
+  }catch(e){c.innerHTML='<p style="color:#c0392b">エラー</p>';}
+}
+function selectSetupFolder(el){document.querySelectorAll('.folder-item-setup').forEach(function(x){x.classList.remove('selected')});el.classList.add('selected');setupFolderId=el.getAttribute('data-id');setupFolderName=el.getAttribute('data-name');updateSetupBtn();}
+function openSetupFolder(id,name){setupFolderPath.push({id:id,name:name});setupFolderId=id;setupFolderName=name;loadSetupFolders(id);updateSetupBtn();}
+function navigateSetupTo(i){setupFolderPath=setupFolderPath.slice(0,i+1);var t=setupFolderPath[i];setupFolderId=t.id;setupFolderName=t.name;loadSetupFolders(t.id);updateSetupBtn();}
+function updateSetupBreadcrumb(){var el=document.getElementById('setup-breadcrumb'),h='';for(var i=0;i<setupFolderPath.length;i++){if(i>0)h+=' / ';if(i<setupFolderPath.length-1)h+='<a onclick="navigateSetupTo('+i+')">'+escapeHtml(setupFolderPath[i].name)+'</a>';else h+='<strong>'+escapeHtml(setupFolderPath[i].name)+'</strong>';}el.innerHTML=h;}
+function updateSetupBtn(){var b=document.getElementById('setup-confirm-btn');b.disabled=!setupFolderId;b.textContent=setupFolderName?'「'+setupFolderName+'」に決定':'選択してください';}
+async function confirmSetup(){
+  var b=document.getElementById('setup-confirm-btn');b.disabled=true;b.textContent='保存中...';
+  var cfg={domain:currentUser.domain,admin:currentUser.email,adminName:currentUser.name,folderId:setupFolderId,folderName:setupFolderName,driveId:setupDriveId,driveName:setupDriveName,createdAt:new Date().toISOString()};
+  try{var m=JSON.stringify({name:CONFIG_FILENAME,parents:[setupFolderId],mimeType:'application/json'});var f=new FormData();f.append('metadata',new Blob([m],{type:'application/json'}));f.append('file',new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'}));
+    var r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',{method:'POST',headers:{'Authorization':'Bearer '+accessToken},body:f});
+    if(!r.ok)throw new Error('Save failed');var fl=await r.json();orgConfig=cfg;orgConfig.configFileId=fl.id;showToast('完了！');showMainView();
+  }catch(e){showToast('エラー');b.disabled=false;b.textContent='「'+setupFolderName+'」に決定';}
 }
 
-async function loadSharedDrives() {
-  var container = document.getElementById('setup-drives');
-  container.innerHTML = '<div class="loading-state" style="padding:24px"><div class="spinner"></div><div>読み込み中...</div></div>';
-  try {
-    var data = await apiFetch('https://www.googleapis.com/drive/v3/drives?pageSize=100');
-    var drives = data.drives || [];
-    if (drives.length === 0) { container.innerHTML = '<div class="empty-state"><p>共有ドライブが見つかりません</p></div>'; return; }
-    var html = '<div class="drive-list">';
-    for (var i = 0; i < drives.length; i++) {
-      html += '<div class="drive-item" data-id="' + drives[i].id + '" data-name="' + escapeAttr(drives[i].name) + '" onclick="selectDrive(this)">'
-        + '<span class="icon">💾</span><span class="name">' + escapeHtml(drives[i].name) + '</span></div>';
-    }
-    container.innerHTML = html + '</div>';
-  } catch(e) { container.innerHTML = '<div class="empty-state"><p>読み込みエラー</p></div>'; }
-}
-
-function selectDrive(el) {
-  document.querySelectorAll('.drive-item').forEach(function(x) { x.classList.remove('selected'); });
-  el.classList.add('selected');
-  setupDriveId = el.getAttribute('data-id');
-  setupDriveName = el.getAttribute('data-name');
-  setupFolderId = setupDriveId; setupFolderName = setupDriveName;
-  setupFolderPath = [{ id: setupDriveId, name: setupDriveName }];
-  document.getElementById('setup-step2').style.display = '';
-  loadSetupFolders(setupDriveId); updateSetupConfirmBtn();
-}
-
-async function loadSetupFolders(parentId) {
-  var container = document.getElementById('setup-folders');
-  container.innerHTML = '<div class="loading-state" style="padding:24px"><div class="spinner"></div><div>読み込み中...</div></div>';
-  updateSetupBreadcrumb();
-  try {
-    var query = "'" + parentId + "' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false";
-    var data = await apiFetch('https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(query)
-      + '&driveId=' + setupDriveId + '&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true&fields=files(id,name)&orderBy=name&pageSize=100');
-    var folders = data.files || [];
-    if (folders.length === 0) { container.innerHTML = '<p style="color:#8a7e6e; font-size:0.85em; padding:12px;">サブフォルダなし</p>'; return; }
-    var html = '<div class="folder-list-setup">';
-    for (var i = 0; i < folders.length; i++) {
-      html += '<div class="folder-item-setup" data-id="' + folders[i].id + '" data-name="' + escapeAttr(folders[i].name) + '" onclick="selectSetupFolder(this)">'
-        + '<span class="icon">📁</span><span class="name">' + escapeHtml(folders[i].name) + '</span>'
-        + '<span class="arrow" onclick="event.stopPropagation(); openSetupFolder(\'' + folders[i].id + '\',\'' + escapeAttr(folders[i].name) + '\')">▶</span></div>';
-    }
-    container.innerHTML = html + '</div>';
-  } catch(e) { container.innerHTML = '<p style="color:#c0392b; font-size:0.85em; padding:12px;">エラー</p>'; }
-}
-
-function selectSetupFolder(el) {
-  document.querySelectorAll('.folder-item-setup').forEach(function(x) { x.classList.remove('selected'); });
-  el.classList.add('selected');
-  setupFolderId = el.getAttribute('data-id'); setupFolderName = el.getAttribute('data-name');
-  updateSetupConfirmBtn();
-}
-
-function openSetupFolder(id, name) {
-  setupFolderPath.push({ id: id, name: name });
-  setupFolderId = id; setupFolderName = name;
-  loadSetupFolders(id); updateSetupConfirmBtn();
-}
-
-function navigateSetupTo(index) {
-  setupFolderPath = setupFolderPath.slice(0, index + 1);
-  var t = setupFolderPath[index]; setupFolderId = t.id; setupFolderName = t.name;
-  loadSetupFolders(t.id); updateSetupConfirmBtn();
-}
-
-function updateSetupBreadcrumb() {
-  var el = document.getElementById('setup-breadcrumb'); var html = '';
-  for (var i = 0; i < setupFolderPath.length; i++) {
-    if (i > 0) html += ' <span style="color:#d4cdc2">/</span> ';
-    if (i < setupFolderPath.length - 1) html += '<a onclick="navigateSetupTo(' + i + ')">' + escapeHtml(setupFolderPath[i].name) + '</a>';
-    else html += '<strong>' + escapeHtml(setupFolderPath[i].name) + '</strong>';
-  }
-  el.innerHTML = html;
-}
-
-function updateSetupConfirmBtn() {
-  var btn = document.getElementById('setup-confirm-btn');
-  btn.disabled = !setupFolderId;
-  btn.textContent = setupFolderName ? '「' + setupFolderName + '」に決定' : 'フォルダを選択してください';
-}
-
-async function confirmSetup() {
-  var btn = document.getElementById('setup-confirm-btn');
-  btn.disabled = true; btn.textContent = '保存中...';
-  var config = {
-    domain: currentUser.domain, admin: currentUser.email, adminName: currentUser.name,
-    folderId: setupFolderId, folderName: setupFolderName,
-    driveId: setupDriveId, driveName: setupDriveName, createdAt: new Date().toISOString(),
-  };
-  try {
-    var meta = JSON.stringify({ name: CONFIG_FILENAME, parents: [setupFolderId], mimeType: 'application/json' });
-    var form = new FormData();
-    form.append('metadata', new Blob([meta], { type: 'application/json' }));
-    form.append('file', new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' }));
-    var res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',
-      { method: 'POST', headers: { 'Authorization': 'Bearer ' + accessToken }, body: form });
-    if (!res.ok) throw new Error('Save failed');
-    var file = await res.json();
-    orgConfig = config; orgConfig.configFileId = file.id;
-    showToast('セットアップ完了！'); showMainView();
-  } catch(e) { showToast('保存エラー'); btn.disabled = false; btn.textContent = '「' + setupFolderName + '」に決定'; }
-}
-
-// ==================== Main View ====================
-function showMainView() {
+// ==================== Main ====================
+function showMainView(){
   showView('main');
-  document.getElementById('dest-name').textContent = orgConfig.driveName + ' / ' + orgConfig.folderName;
-  var isAdmin = (currentUser.email === orgConfig.admin);
-  document.getElementById('admin-badge').style.display = isAdmin ? '' : 'none';
-  document.getElementById('admin-actions').style.display = isAdmin ? '' : 'none';
-  // Set default folder name with today's date
-  var today = new Date();
-  var y = today.getFullYear();
-  var m = String(today.getMonth() + 1).padStart(2, '0');
-  document.getElementById('folder-name').value = y + m + ' ';
-  document.getElementById('folder-name').focus();
+  document.getElementById('dest-name').textContent=orgConfig.driveName+' / '+orgConfig.folderName;
+  var isAdmin=(currentUser.email===orgConfig.admin);
+  document.getElementById('admin-badge').style.display=isAdmin?'':'none';
+  document.getElementById('admin-actions').style.display=isAdmin?'':'none';
+  document.getElementById('search-empty').style.display='';
   updateTransferBtn();
 }
 
-// ==================== File handling ====================
-function handleFiles(fileList) {
-  for (var i = 0; i < fileList.length; i++) {
-    selectedFiles.push(fileList[i]);
-  }
+// ==================== Files ====================
+function handleFiles(fl){
+  for(var i=0;i<fl.length;i++)selectedFiles.push(fl[i]);
   renderPreviews();
+  if(selectedFiles.length>0)analyzePhotos();
+  updateTransferBtn();
+}
+function renderPreviews(){
+  var s=document.getElementById('preview-section'),g=document.getElementById('preview-grid'),c=document.getElementById('preview-count');
+  if(!selectedFiles.length){s.style.display='none';document.getElementById('ai-card').style.display='none';document.getElementById('folder-card').style.display='none';return;}
+  s.style.display='';c.textContent=selectedFiles.length+'枚の写真を選択中';
+  var h='';for(var i=0;i<selectedFiles.length;i++)h+='<div class="preview-item"><img src="'+URL.createObjectURL(selectedFiles[i])+'" alt=""><button class="remove" onclick="removeFile('+i+')">✕</button></div>';
+  g.innerHTML=h;
+}
+function removeFile(i){selectedFiles.splice(i,1);renderPreviews();if(selectedFiles.length===0){aiAnalysis=null;}updateTransferBtn();}
+
+// ==================== Gemini Analysis ====================
+async function analyzePhotos(){
+  var card=document.getElementById('ai-card');card.style.display='';
+  document.getElementById('ai-loading').style.display='';document.getElementById('ai-results').style.display='none';
+
+  try{
+    // Analyze first 5 photos (or fewer)
+    var filesToAnalyze=selectedFiles.slice(0,5);
+    var parts=[{text:'以下の写真を分析してください。JSON形式で回答してください。\n\n必要な情報:\n- tags: 写真の内容を表すタグの配列（日本語、5〜10個）。被写体、場所、シーン、季節、色などを含む\n- location: 撮影場所の推定（わかる場合）\n- folderSuggestion: これらの写真をまとめるフォルダ名の提案（YYYYMM + 内容の形式、例: "202603 静岡大学視察"）\n\nJSON形式:\n{"tags":["タグ1","タグ2"],"location":"場所","folderSuggestion":"フォルダ名"}'}];
+
+    for(var i=0;i<filesToAnalyze.length;i++){
+      var base64=await fileToBase64(filesToAnalyze[i]);
+      parts.push({inlineData:{mimeType:filesToAnalyze[i].type||'image/jpeg',data:base64}});
+    }
+
+    var body={contents:[{parts:parts}],generationConfig:{temperature:0.2,maxOutputTokens:1024,responseMimeType:'application/json'}};
+    var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',{
+      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},body:JSON.stringify(body)
+    });
+
+    if(!res.ok)throw new Error('Gemini API '+res.status);
+    var data=await res.json();
+    var text=data.candidates[0].content.parts[0].text;
+    var json=JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+
+    aiAnalysis={tags:json.tags||[],location:json.location||'',folderSuggestion:json.folderSuggestion||''};
+
+    // Show results
+    document.getElementById('ai-loading').style.display='none';
+    document.getElementById('ai-results').style.display='';
+    var tagsHtml='';for(var i=0;i<aiAnalysis.tags.length;i++)tagsHtml+='<span class="ai-tag">'+escapeHtml(aiAnalysis.tags[i])+'</span>';
+    document.getElementById('ai-tags').innerHTML=tagsHtml;
+    document.getElementById('ai-location').innerHTML=aiAnalysis.location?'📍 '+escapeHtml(aiAnalysis.location):'';
+    document.getElementById('ai-folder-suggest').textContent=aiAnalysis.folderSuggestion;
+
+    // Show folder options
+    showFolderOptions();
+  }catch(e){
+    document.getElementById('ai-loading').style.display='none';
+    document.getElementById('ai-results').innerHTML='<div class="ai-section"><p style="color:#8a7e6e">AI分析をスキップしました</p></div>';
+    document.getElementById('ai-results').style.display='';
+    aiAnalysis={tags:[],location:'',folderSuggestion:''};
+    showFolderOptions();
+  }
   updateTransferBtn();
 }
 
-function renderPreviews() {
-  var section = document.getElementById('preview-section');
-  var grid = document.getElementById('preview-grid');
-  var count = document.getElementById('preview-count');
-
-  if (selectedFiles.length === 0) {
-    section.style.display = 'none'; return;
-  }
-
-  section.style.display = '';
-  count.textContent = selectedFiles.length + '枚の写真を選択中';
-
-  var html = '';
-  for (var i = 0; i < selectedFiles.length; i++) {
-    var file = selectedFiles[i];
-    html += '<div class="preview-item" id="preview-' + i + '">'
-      + '<img src="' + URL.createObjectURL(file) + '" alt="">'
-      + '<button class="remove" onclick="removeFile(' + i + ')">✕</button>'
-      + '</div>';
-  }
-  grid.innerHTML = html;
+function fileToBase64(file){
+  return new Promise(function(resolve){
+    var reader=new FileReader();
+    reader.onload=function(){resolve(reader.result.split(',')[1]);};
+    reader.readAsDataURL(file);
+  });
 }
 
-function removeFile(index) {
-  selectedFiles.splice(index, 1);
-  renderPreviews();
+// ==================== Folder Options ====================
+function showFolderOptions(){
+  var card=document.getElementById('folder-card');card.style.display='';
+  var html='';
+  if(aiAnalysis&&aiAnalysis.folderSuggestion){
+    html+='<div class="folder-option selected" data-mode="suggest" onclick="selectFolderMode(\'suggest\')"><span class="icon">✨</span><span class="name">'+escapeHtml(aiAnalysis.folderSuggestion)+'</span><span class="check">✓</span></div>';
+    chosenFolderMode='suggest';
+  }
+  html+='<div class="folder-option'+(chosenFolderMode==='custom'?' selected':'')+'" data-mode="custom" onclick="selectFolderMode(\'custom\')"><span class="icon">✏️</span><span class="name">自分で入力</span><span class="check">✓</span></div>';
+  html+='<div class="folder-option'+(chosenFolderMode==='existing'?' selected':'')+'" data-mode="existing" onclick="selectFolderMode(\'existing\')"><span class="icon">📂</span><span class="name">既存フォルダに追加</span><span class="check">✓</span></div>';
+  document.getElementById('folder-options').innerHTML=html;
+  document.getElementById('custom-folder-area').style.display='none';
+  document.getElementById('existing-folder-area').style.display='none';
   updateTransferBtn();
 }
 
-function updateTransferBtn() {
-  var btn = document.getElementById('transfer-btn');
-  var folderName = (document.getElementById('folder-name') || {}).value || '';
-  var hasFiles = selectedFiles.length > 0;
-  var hasName = folderName.trim().length > 0;
+function selectFolderMode(mode){
+  chosenFolderMode=mode;chosenFolderId='';
+  document.querySelectorAll('.folder-option').forEach(function(x){x.classList.toggle('selected',x.getAttribute('data-mode')===mode)});
+  document.getElementById('custom-folder-area').style.display=mode==='custom'?'':'none';
+  document.getElementById('existing-folder-area').style.display=mode==='existing'?'':'none';
+  if(mode==='custom')document.getElementById('custom-folder-name').focus();
+  if(mode==='existing')loadExistingFolders();
+  updateTransferBtn();
+}
 
-  if (hasFiles && hasName) {
-    btn.disabled = false;
-    btn.textContent = selectedFiles.length + '枚の写真をアップロード';
-  } else if (hasFiles && !hasName) {
-    btn.disabled = true;
-    btn.textContent = 'フォルダ名を入力してください';
-  } else {
-    btn.disabled = true;
-    btn.textContent = '写真とフォルダ名を入力してください';
-  }
+async function loadExistingFolders(){
+  var c=document.getElementById('existing-folders');c.innerHTML='<div class="loading-state" style="padding:16px"><div class="spinner"></div></div>';
+  try{
+    var q="'"+orgConfig.folderId+"' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false";
+    var d=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&driveId='+orgConfig.driveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true&fields=files(id,name)&orderBy=name_natural desc&pageSize=50');
+    var f=d.files||[];
+    if(!f.length){c.innerHTML='<p style="color:#8a7e6e;font-size:.85em">既存フォルダなし</p>';return;}
+    var h='';for(var i=0;i<f.length;i++)h+='<div class="folder-item-setup" data-id="'+f[i].id+'" data-name="'+escapeAttr(f[i].name)+'" onclick="selectExistingFolder(this)"><span class="icon">📁</span><span class="name">'+escapeHtml(f[i].name)+'</span></div>';
+    c.innerHTML=h;
+  }catch(e){c.innerHTML='<p style="color:#c0392b">エラー</p>';}
+}
+function selectExistingFolder(el){
+  document.querySelectorAll('#existing-folders .folder-item-setup').forEach(function(x){x.classList.remove('selected')});
+  el.classList.add('selected');chosenFolderId=el.getAttribute('data-id');updateTransferBtn();
+}
+
+function updateTransferBtn(){
+  var btn=document.getElementById('transfer-btn');
+  if(!selectedFiles.length){btn.disabled=true;btn.textContent='写真を選択してください';return;}
+  if(!aiAnalysis){btn.disabled=true;btn.textContent='AI分析中...';return;}
+  var ready=false;
+  if(chosenFolderMode==='suggest'&&aiAnalysis.folderSuggestion)ready=true;
+  if(chosenFolderMode==='custom'&&(document.getElementById('custom-folder-name').value||'').trim())ready=true;
+  if(chosenFolderMode==='existing'&&chosenFolderId)ready=true;
+  btn.disabled=!ready;
+  btn.textContent=ready?selectedFiles.length+'枚をアップロード':'フォルダを選択してください';
 }
 
 // ==================== Upload ====================
-async function startUpload() {
-  if (selectedFiles.length === 0 || !orgConfig) return;
-  var folderName = document.getElementById('folder-name').value.trim();
-  if (!folderName) return;
+async function startUpload(){
+  if(!selectedFiles.length||!orgConfig)return;
 
   document.getElementById('modal').classList.add('active');
-  document.getElementById('modal-progress').style.display = 'block';
-  document.getElementById('modal-done').style.display = 'none';
-  document.getElementById('modal-title').textContent = folderName;
+  document.getElementById('modal-progress').style.display='block';
+  document.getElementById('modal-done').style.display='none';
 
-  var transferred = 0;
-  var errors = [];
+  var targetFolderId='';
+  var folderName='';
 
-  try {
-    // Create subfolder
-    var folderRes = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [orgConfig.folderId] }),
-    });
-    if (!folderRes.ok) throw new Error('フォルダ作成失敗');
-    var folder = await folderRes.json();
-
-    // Upload each file
-    for (var i = 0; i < selectedFiles.length; i++) {
-      var file = selectedFiles[i];
-      var pct = Math.round(((i + 1) / selectedFiles.length) * 100);
-      updateProgress(pct, file.name, (i + 1) + ' / ' + selectedFiles.length);
-
-      try {
-        var meta = JSON.stringify({ name: file.name, parents: [folder.id] });
-        var form = new FormData();
-        form.append('metadata', new Blob([meta], { type: 'application/json' }));
-        form.append('file', file);
-
-        var upRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',
-          { method: 'POST', headers: { 'Authorization': 'Bearer ' + accessToken }, body: form });
-        if (upRes.ok) transferred++;
-        else errors.push(file.name);
-      } catch(e) { errors.push(file.name); }
+  try{
+    if(chosenFolderMode==='existing'){
+      targetFolderId=chosenFolderId;
+    }else{
+      folderName=chosenFolderMode==='suggest'?aiAnalysis.folderSuggestion:document.getElementById('custom-folder-name').value.trim();
+      document.getElementById('modal-title').textContent=folderName;
+      var fr=await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true',{
+        method:'POST',headers:{'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},
+        body:JSON.stringify({name:folderName,mimeType:'application/vnd.google-apps.folder',parents:[orgConfig.folderId]})
+      });
+      if(!fr.ok)throw new Error('フォルダ作成失敗');
+      var folder=await fr.json();targetFolderId=folder.id;
     }
-  } catch(e) {
-    errors.push(e.message);
+
+    // Build tag description
+    var desc='';
+    if(aiAnalysis){
+      var parts=[];
+      if(aiAnalysis.tags.length)parts.push(aiAnalysis.tags.map(function(t){return '#'+t}).join(' '));
+      if(aiAnalysis.location)parts.push('📍 '+aiAnalysis.location);
+      desc=parts.join('\n');
+    }
+
+    var transferred=0,errors=[];
+    for(var i=0;i<selectedFiles.length;i++){
+      var file=selectedFiles[i];
+      var pct=Math.round(((i+1)/selectedFiles.length)*100);
+      updateProgress(pct,file.name,(i+1)+' / '+selectedFiles.length);
+      try{
+        var meta=JSON.stringify({name:file.name,parents:[targetFolderId],description:desc});
+        var form=new FormData();
+        form.append('metadata',new Blob([meta],{type:'application/json'}));
+        form.append('file',file);
+        var ur=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',
+          {method:'POST',headers:{'Authorization':'Bearer '+accessToken},body:form});
+        if(ur.ok)transferred++;else errors.push(file.name);
+      }catch(e){errors.push(file.name);}
+    }
+
+    document.getElementById('modal-progress').style.display='none';
+    document.getElementById('modal-done').style.display='block';
+    var hasErr=errors.length>0;
+    document.getElementById('done-icon').textContent=hasErr?'⚠️':'✅';
+    document.getElementById('done-msg').textContent=transferred+'枚をアップロードしました';
+    document.getElementById('done-detail').textContent=hasErr?errors.length+'件のエラー':'全ての写真をアップロード完了';
+  }catch(e){
+    document.getElementById('modal-progress').style.display='none';
+    document.getElementById('modal-done').style.display='block';
+    document.getElementById('done-icon').textContent='❌';
+    document.getElementById('done-msg').textContent='エラー';
+    document.getElementById('done-detail').textContent=e.message;
   }
-
-  // Done
-  document.getElementById('modal-progress').style.display = 'none';
-  document.getElementById('modal-done').style.display = 'block';
-  var hasErr = errors.length > 0;
-  document.getElementById('done-icon').textContent = hasErr ? '⚠️' : '✅';
-  document.getElementById('done-msg').textContent = transferred + '枚をアップロードしました';
-  document.getElementById('done-detail').textContent = hasErr ? errors.length + '件のエラー' : '全ての写真をアップロード完了';
 }
 
-function updateProgress(pct, filename, detail) {
-  var circ = 2 * Math.PI * 50;
-  document.getElementById('progress-fg').style.strokeDashoffset = circ * (1 - pct / 100);
-  document.getElementById('progress-pct').textContent = pct + '%';
-  document.getElementById('progress-file').textContent = filename;
-  document.getElementById('progress-detail').textContent = detail;
+function updateProgress(pct,fn,detail){
+  var c=2*Math.PI*50;document.getElementById('progress-fg').style.strokeDashoffset=c*(1-pct/100);
+  document.getElementById('progress-pct').textContent=pct+'%';document.getElementById('progress-file').textContent=fn;document.getElementById('progress-detail').textContent=detail;
 }
-
-function closeModal() {
+function closeModal(){
   document.getElementById('modal').classList.remove('active');
-  selectedFiles = [];
-  renderPreviews();
-  document.getElementById('folder-name').value = '';
-  updateTransferBtn();
-  updateProgress(0, '', '');
+  selectedFiles=[];aiAnalysis=null;renderPreviews();
+  document.getElementById('ai-card').style.display='none';document.getElementById('folder-card').style.display='none';
+  updateProgress(0,'','');updateTransferBtn();
+}
+
+// ==================== Search ====================
+async function doSearch(){
+  var q=document.getElementById('search-query').value.trim();if(!q)return;
+  var rc=document.getElementById('search-results');
+  document.getElementById('search-loading').style.display='';
+  document.getElementById('search-empty').style.display='none';
+  rc.innerHTML='';
+
+  try{
+    // Search in Drive by description (tags) and file name
+    var query="fullText contains '"+q.replace(/'/g,"\\'")+"' and mimeType contains 'image/' and trashed=false";
+    var data=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(query)
+      +'&driveId='+orgConfig.driveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true'
+      +'&fields=files(id,name,description,thumbnailLink,webViewLink,parents)&pageSize=50&orderBy=createdTime desc');
+
+    document.getElementById('search-loading').style.display='none';
+    var files=data.files||[];
+    if(!files.length){rc.innerHTML='<div class="loading-state" style="padding:24px">「'+escapeHtml(q)+'」に一致する写真が見つかりません</div>';return;}
+
+    var html='<div class="search-results">';
+    for(var i=0;i<files.length;i++){
+      var f=files[i];
+      var thumb=f.thumbnailLink||'';
+      var desc=f.description||'';
+      var tags=desc.match(/#\S+/g)||[];
+      html+='<div class="search-result" onclick="window.open(\''+f.webViewLink+'\',\'_blank\')">'
+        +(thumb?'<img src="'+thumb+'" alt="" loading="lazy">':'')
+        +'<div class="info"><div class="name">'+escapeHtml(f.name)+'</div>'
+        +'<div class="tags">'+escapeHtml(tags.slice(0,3).join(' '))+'</div></div></div>';
+    }
+    rc.innerHTML=html+'</div>';
+  }catch(e){
+    document.getElementById('search-loading').style.display='none';
+    rc.innerHTML='<div class="loading-state">検索エラー: '+escapeHtml(e.message)+'</div>';
+  }
 }
 
 // ==================== Utils ====================
-async function apiFetch(url, opts) {
-  opts = opts || {}; opts.headers = opts.headers || {};
-  opts.headers['Authorization'] = 'Bearer ' + accessToken;
-  var res = await fetch(url, opts);
-  if (!res.ok) {
-    var errBody = ''; try { errBody = JSON.stringify(await res.json()); } catch(e) {}
-    throw new Error('API ' + res.status + ': ' + errBody);
-  }
-  return res.json();
+async function apiFetch(url,opts){
+  opts=opts||{};opts.headers=opts.headers||{};opts.headers['Authorization']='Bearer '+accessToken;
+  var res=await fetch(url,opts);if(!res.ok){var e='';try{e=JSON.stringify(await res.json())}catch(x){}throw new Error('API '+res.status+': '+e);}return res.json();
 }
+function isBlockedDomain(d){return BLOCKED_DOMAINS.indexOf(d.toLowerCase())!==-1}
+function escapeHtml(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
+function escapeAttr(s){return(s||'').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function showToast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show')},2500)}
 
-function isBlockedDomain(domain) { return BLOCKED_DOMAINS.indexOf(domain.toLowerCase()) !== -1; }
-function escapeHtml(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
-function escapeAttr(s) { return (s||'').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function showToast(msg) { var t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(function() { t.classList.remove('show'); }, 2500); }
-
-// ==================== Init ====================
-(function() {
-  var check = setInterval(function() {
-    if (typeof google !== 'undefined' && google.accounts) { clearInterval(check); initGIS(); }
-  }, 100);
-})();
+(function(){var c=setInterval(function(){if(typeof google!=='undefined'&&google.accounts){clearInterval(c);initGIS();}},100)})();
 </script>
 </body>
 </html>
