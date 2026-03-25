@@ -1900,11 +1900,15 @@ function showPickerDetail(photoIdx){
   // Loading state
   editor.innerHTML='<div style="color:#fff;text-align:center;padding:40px"><div class="spinner"></div><div style="margin-top:8px">読み込み中...</div></div>';
 
-  // Load image via Drive API
-  fetch('https://www.googleapis.com/drive/v3/files/'+p.id+'?alt=media&supportsAllDrives=true',
-    {headers:{'Authorization':'Bearer '+accessToken}})
-  .then(function(r){return r.blob()})
-  .then(function(blob){
+  // Use edited blob if available, otherwise fetch from Drive
+  var loadPromise;
+  if(p._editedBlob){
+    loadPromise=Promise.resolve(p._editedBlob);
+  }else{
+    loadPromise=fetch('https://www.googleapis.com/drive/v3/files/'+p.id+'?alt=media&supportsAllDrives=true',
+      {headers:{'Authorization':'Bearer '+accessToken}}).then(function(r){return r.blob()});
+  }
+  loadPromise.then(function(blob){
     var url=URL.createObjectURL(blob);
     var img=new Image();
     img.onload=function(){
