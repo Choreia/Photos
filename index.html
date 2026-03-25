@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Photos">
 <meta name="theme-color" content="#a0522d">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; connect-src https://www.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://generativelanguage.googleapis.com https://lh3.googleusercontent.com; frame-src https://accounts.google.com https://www.openstreetmap.org; img-src * data: blob:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; connect-src https://www.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://generativelanguage.googleapis.com https://lh3.googleusercontent.com https://sheets.googleapis.com; frame-src https://accounts.google.com https://www.openstreetmap.org; img-src * data: blob:;">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;background:#faf8f5;color:#2c2418;line-height:1.6;min-height:100vh;-webkit-tap-highlight-color:transparent}
@@ -154,6 +154,19 @@ input[type="file"]{display:none}
 .btn-copy{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#f5ece5;color:#5a3e28;border:none;border-radius:10px;font-size:.8em;font-weight:600;cursor:pointer;font-family:inherit}
 .btn-copy:active{background:#ece6de}
 .sns-post-photos img.selected{outline:3px solid #a0522d;outline-offset:-3px}
+.sns-post-textarea{width:100%;min-height:100px;padding:10px 14px;border:2px solid #ece6de;border-radius:10px;font-size:.9em;font-family:inherit;line-height:1.7;resize:vertical;background:#fff}
+.sns-post-textarea:focus{border-color:#a0522d;outline:none}
+.sns-photo-grid{display:flex;flex-wrap:wrap;gap:4px;margin:10px 0}
+.sns-photo-grid img{width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;opacity:.4;transition:all .15s}
+.sns-photo-grid img.selected{opacity:1;outline:3px solid #a0522d;outline-offset:-2px}
+.sns-photo-grid img:active{transform:scale(.9)}
+.sns-post-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.btn-sns{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:none;border-radius:10px;font-size:.8em;font-weight:600;cursor:pointer;font-family:inherit;color:#fff}
+.btn-sns:active{opacity:.85}
+.btn-sns.x{background:#000}
+.btn-sns.fb{background:#1877f2}
+.btn-sns.ig{background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)}
+.btn-sns.dl{background:#5a3e28}
 
 .photo-detail-map{position:relative;width:100%;height:160px;border-radius:10px;overflow:hidden;margin-top:4px;cursor:pointer}
 .photo-detail-map iframe{width:100%;height:100%;border:none;pointer-events:none}
@@ -468,7 +481,7 @@ input[type="file"]{display:none}
 <script>
 // ==================== Config ====================
 var CLIENT_ID='595564106580-hsrunbvfacmr23d2jopl462taqilip75.apps.googleusercontent.com';
-var SCOPES='https://www.googleapis.com/auth/drive';
+var SCOPES='https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets';
 var GEMINI_API_KEY='AIzaSyAQPTkqhr49TFC7hPDoBBWBFEStnG_kokA';
 var CONFIG_FILENAME='choreia-photos-config.json';
 var BLOCKED_DOMAINS=['gmail.com','googlemail.com','yahoo.co.jp','yahoo.com','hotmail.com','outlook.com','outlook.jp','icloud.com','me.com','mac.com','aol.com','protonmail.com','zoho.com','live.com','live.jp','msn.com','nifty.com','biglobe.ne.jp','ocn.ne.jp'];
@@ -1409,45 +1422,147 @@ async function generateFromTheme(){
   }
 }
 
+var snsPostPhotos=[]; // all candidate photos for current SNS session
+var snsPostData=[]; // [{text, selectedPhotoIds:Set}]
+
 function renderSnsPosts(posts,photos){
+  snsPostPhotos=photos;
+  snsPostData=[];
   var rc=document.getElementById('sns-results');
   if(!posts.length){rc.innerHTML='<div class="browse-empty">投稿案を生成できませんでした</div>';return;}
+
   var h='';
   for(var i=0;i<posts.length;i++){
     var p=posts[i];
-    h+='<div class="sns-post-card">';
-    h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-size:.75em;background:#f5ece5;padding:3px 10px;border-radius:8px;color:#a0522d;font-weight:600">'+escapeHtml(p.platform||'SNS')+'</span><span style="font-size:.85em;font-weight:600">'+escapeHtml(p.title||'')+'</span></div>';
-    h+='<div class="sns-post-text" id="sns-text-'+i+'">'+escapeHtml(p.text||'')+'</div>';
-    // Photos
+    var selectedIds=new Set();
     var nums=p.photoNumbers||[];
-    if(nums.length){
-      h+='<div class="sns-post-photos">';
-      for(var j=0;j<nums.length;j++){
-        var idx=(nums[j]||1)-1;
-        if(idx>=0&&idx<photos.length&&photos[idx].thumbnailLink){
-          h+='<img src="'+escapeAttr(photos[idx].thumbnailLink)+'" alt="'+escapeAttr(photos[idx].name)+'" title="'+escapeAttr(photos[idx].name)+'">';
-        }
-      }
-      h+='</div>';
+    for(var j=0;j<nums.length;j++){var idx=(nums[j]||1)-1;if(idx>=0&&idx<photos.length)selectedIds.add(idx);}
+    snsPostData.push({text:p.text||'',selectedPhotoIds:selectedIds,platform:p.platform||'SNS',title:p.title||''});
+
+    h+='<div class="sns-post-card" id="sns-card-'+i+'">';
+    h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-size:.75em;background:#f5ece5;padding:3px 10px;border-radius:8px;color:#a0522d;font-weight:600">'+escapeHtml(p.platform||'SNS')+'</span><span style="font-size:.85em;font-weight:600">'+escapeHtml(p.title||'')+'</span></div>';
+    // Editable text
+    h+='<textarea class="sns-post-textarea" id="sns-text-'+i+'" oninput="snsPostData['+i+'].text=this.value">'+escapeHtml(p.text||'')+'</textarea>';
+    // Photo grid - all photos, selected ones highlighted
+    h+='<div style="font-size:.75em;color:#8a7e6e;margin-top:8px">写真をタップして選択/解除:</div>';
+    h+='<div class="sns-photo-grid" id="sns-photos-'+i+'">';
+    for(var j=0;j<photos.length;j++){
+      if(!photos[j].thumbnailLink)continue;
+      h+='<img src="'+escapeAttr(photos[j].thumbnailLink)+'" data-idx="'+j+'" class="'+(selectedIds.has(j)?'selected':'')+'" onclick="toggleSnsPhoto('+i+','+j+')" title="'+escapeAttr(photos[j].name)+'">';
     }
-    h+='<div class="sns-post-actions">';
-    h+='<button class="btn-copy" onclick="copySnsText('+i+')">📋 文章をコピー</button>';
+    h+='</div>';
+    // Action buttons
+    h+='<div class="sns-post-btns">';
+    h+='<button class="btn-sns x" onclick="postToX('+i+')" title="Xに投稿"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></button>';
+    h+='<button class="btn-sns fb" onclick="postToFB('+i+')" title="Facebookに投稿"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></button>';
+    h+='<button class="btn-sns ig" onclick="copyForIG('+i+')" title="Instagram用にコピー"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg></button>';
+    h+='<button class="btn-sns dl" onclick="downloadSnsPhotos('+i+')" title="写真をダウンロード">📥</button>';
     h+='</div>';
     h+='</div>';
   }
   rc.innerHTML=h;
 }
 
-function copySnsText(idx){
-  var el=document.getElementById('sns-text-'+idx);
-  if(!el)return;
-  navigator.clipboard.writeText(el.textContent).then(function(){
-    showToast('投稿文をコピーしました');
+function toggleSnsPhoto(postIdx,photoIdx){
+  var d=snsPostData[postIdx];
+  if(d.selectedPhotoIds.has(photoIdx))d.selectedPhotoIds.delete(photoIdx);
+  else d.selectedPhotoIds.add(photoIdx);
+  // Update UI
+  var grid=document.getElementById('sns-photos-'+postIdx);
+  var imgs=grid.querySelectorAll('img');
+  imgs.forEach(function(img){
+    var idx=parseInt(img.getAttribute('data-idx'));
+    img.classList.toggle('selected',d.selectedPhotoIds.has(idx));
+  });
+}
+
+function getSnsText(idx){return document.getElementById('sns-text-'+idx).value;}
+
+function postToX(idx){
+  var text=getSnsText(idx);
+  window.open('https://x.com/intent/post?text='+encodeURIComponent(text),'_blank');
+  showToast('Xの投稿画面を開きました。写真は手動で添付してください');
+  logSnsPost(idx,'X');
+}
+
+function postToFB(idx){
+  var text=getSnsText(idx);
+  navigator.clipboard.writeText(text).catch(function(){});
+  window.open('https://www.facebook.com/','_blank');
+  showToast('投稿文をコピーしました。Facebookに貼り付けてください');
+  logSnsPost(idx,'Facebook');
+}
+
+function copyForIG(idx){
+  var text=getSnsText(idx);
+  navigator.clipboard.writeText(text).then(function(){
+    showToast('投稿文をコピーしました。Instagramに貼り付けてください');
   }).catch(function(){
-    // Fallback
-    var ta=document.createElement('textarea');ta.value=el.textContent;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    var ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
     showToast('投稿文をコピーしました');
   });
+  logSnsPost(idx,'Instagram');
+}
+
+var SNS_LOG_FILENAME='choreia-photos-sns-log';
+var snsLogSheetId=null;
+
+async function findOrCreateSnsLog(){
+  if(snsLogSheetId)return snsLogSheetId;
+  // Search for existing spreadsheet
+  var q="name='"+SNS_LOG_FILENAME+"' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false";
+  var base='&driveId='+orgConfig.driveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true';
+  var data=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+base+'&fields=files(id)');
+  if(data.files&&data.files.length){snsLogSheetId=data.files[0].id;return snsLogSheetId;}
+  // Create new spreadsheet
+  var r=await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true',{
+    method:'POST',headers:{'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},
+    body:JSON.stringify({name:SNS_LOG_FILENAME,mimeType:'application/vnd.google-apps.spreadsheet',parents:[orgConfig.folderId]})
+  });
+  if(!r.ok)throw new Error('スプレッドシート作成失敗');
+  var f=await r.json();snsLogSheetId=f.id;
+  // Add header row
+  await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+snsLogSheetId+'/values/A1:append?valueInputOption=RAW',{
+    method:'POST',headers:{'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},
+    body:JSON.stringify({values:[['日時','プラットフォーム','タイトル','AI提案文','投稿文（編集後）','写真枚数','投稿者']]})
+  });
+  return snsLogSheetId;
+}
+
+async function logSnsPost(idx,platform){
+  try{
+    var sheetId=await findOrCreateSnsLog();
+    var d=snsPostData[idx];
+    var editedText=getSnsText(idx);
+    var now=new Date().toLocaleString('ja-JP');
+    var row=[now,platform,d.title,d.text,editedText,d.selectedPhotoIds.size,currentUser.name];
+    await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+sheetId+'/values/A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',{
+      method:'POST',headers:{'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},
+      body:JSON.stringify({values:[row]})
+    });
+  }catch(e){console.warn('SNS log failed:',e);}
+}
+
+async function downloadSnsPhotos(idx){
+  var d=snsPostData[idx];
+  var ids=Array.from(d.selectedPhotoIds);
+  if(!ids.length){showToast('写真を選択してください');return;}
+  showToast(ids.length+'枚をダウンロード中...');
+  for(var i=0;i<ids.length;i++){
+    var p=snsPostPhotos[ids[i]];
+    try{
+      var resp=await fetch('https://www.googleapis.com/drive/v3/files/'+p.id+'?alt=media&supportsAllDrives=true',
+        {headers:{'Authorization':'Bearer '+accessToken}});
+      if(!resp.ok)continue;
+      var blob=await resp.blob();
+      var a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download=p.name||'photo_'+(i+1)+'.jpg';
+      document.body.appendChild(a);a.click();document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+    }catch(e){}
+  }
+  showToast('ダウンロード完了');
 }
 
 // ==================== Photo Detail ====================
