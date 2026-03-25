@@ -111,6 +111,26 @@ input[type="file"]{display:none}
 .browse-photo img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
 .browse-photo .name{position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,.6));color:#fff;font-size:.65em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .browse-empty{text-align:center;padding:32px 20px;color:#8a7e6e;font-size:.9em}
+
+/* Photo detail */
+.photo-detail-overlay{display:none;position:fixed;inset:0;background:rgba(44,36,24,.85);z-index:250;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.photo-detail-overlay.active{display:block}
+.photo-detail{max-width:640px;margin:0 auto;padding:16px;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 24px)}
+.photo-detail-close{position:sticky;top:12px;z-index:2;display:flex;justify-content:flex-end;margin-bottom:8px}
+.photo-detail-close button{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.15);backdrop-filter:blur(8px);border:none;color:#fff;font-size:1.2em;cursor:pointer}
+.photo-detail-img{width:100%;border-radius:12px;margin-bottom:16px;background:#222}
+.photo-detail-img img,.photo-detail-img video{width:100%;border-radius:12px;display:block;max-height:60vh;object-fit:contain;background:#000}
+.photo-detail-info{background:#fff;border-radius:16px;padding:16px}
+.photo-detail-name{font-size:1em;font-weight:700;margin-bottom:12px;word-break:break-all}
+.photo-detail-meta{display:flex;flex-direction:column;gap:10px}
+.photo-detail-row{display:flex;align-items:flex-start;gap:10px;font-size:.85em}
+.photo-detail-row .icon{font-size:1.1em;flex-shrink:0;margin-top:1px}
+.photo-detail-row .label{color:#8a7e6e;font-size:.75em;margin-bottom:2px}
+.photo-detail-row .value{color:#2c2418}
+.photo-detail-row a{color:#a0522d;text-decoration:none;font-weight:500}
+.photo-detail-tags{display:flex;flex-wrap:wrap;gap:6px}
+.photo-detail-btn{display:block;width:100%;padding:12px;border:none;border-radius:12px;font-size:.9em;font-weight:600;font-family:inherit;background:#a0522d;color:#fff;cursor:pointer;margin-top:12px;text-align:center}
+.photo-detail-btn:active{opacity:.85}
 .browse-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .btn-retag{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#a0522d;color:#fff;border:none;border-radius:10px;font-size:.8em;font-weight:600;cursor:pointer;font-family:inherit}
 .btn-retag:active{opacity:.85}
@@ -346,6 +366,19 @@ input[type="file"]{display:none}
 
 <div class="footer-action" id="footer-action">
   <button class="btn-primary" id="transfer-btn" disabled onclick="startUpload()">写真を選択してください</button>
+</div>
+
+<!-- Photo Detail -->
+<div class="photo-detail-overlay" id="photo-detail">
+  <div class="photo-detail">
+    <div class="photo-detail-close"><button onclick="closePhotoDetail()">✕</button></div>
+    <div class="photo-detail-img" id="photo-detail-img"></div>
+    <div class="photo-detail-info">
+      <div class="photo-detail-name" id="photo-detail-name"></div>
+      <div class="photo-detail-meta" id="photo-detail-meta"></div>
+      <a class="photo-detail-btn" id="photo-detail-open" href="" target="_blank">Driveで開く</a>
+    </div>
+  </div>
 </div>
 
 <!-- Modal -->
@@ -1041,7 +1074,7 @@ function loadBrowseFolder(folderId,folderName,isRoot){
 
   Promise.all([
     apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(folderQ)+base+'&fields=files(id,name)&orderBy=name&pageSize=100'),
-    apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(photoQ)+base+'&fields=files(id,name,mimeType,thumbnailLink,webViewLink,description)&orderBy=createdTime desc&pageSize=100')
+    apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(photoQ)+base+'&fields=files(id,name,mimeType,thumbnailLink,webViewLink,description,createdTime,imageMediaMetadata)&orderBy=createdTime desc&pageSize=100')
   ]).then(function(results){
     document.getElementById('browse-loading').style.display='none';
     var folders=results[0].files||[];
@@ -1069,7 +1102,7 @@ function loadBrowseFolder(folderId,folderName,isRoot){
         var p=photos[i];
         var thumb=p.thumbnailLink||'';
         var link=p.webViewLink||'';
-        h+='<div class="browse-photo" onclick="window.open(\''+escapeAttr(link)+'\',\'_blank\')">'
+        h+='<div class="browse-photo" onclick="showPhotoDetail('+i+')">'
           +(thumb?'<img src="'+escapeAttr(thumb)+'" alt="" loading="lazy">':'<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:2em">'+(p.mimeType.indexOf('video')>=0?'🎬':'🖼')+'</div>')
           +'<div class="name">'+escapeHtml(p.name)+'</div></div>';
       }
@@ -1091,23 +1124,28 @@ async function retagCurrentFolder(){
   if(!photos.length){showToast('タグ付け可能な写真がありません');return;}
 
   var btn=document.getElementById('btn-retag');
-  btn.disabled=true;btn.textContent='🏷️ 処理中...';
+  btn.disabled=true;
   var prog=document.getElementById('retag-progress');
   var updated=0,errs=0;
+  var total=photos.length;
 
-  // Process in batches of 5
+  function updateRetagUI(step,current){
+    btn.textContent='🏷️ '+current+'/'+total;
+    prog.textContent=step;
+  }
+
   var BATCH=5;
   for(var i=0;i<photos.length;i+=BATCH){
     var batch=photos.slice(i,Math.min(i+BATCH,photos.length));
-    prog.textContent=(i+1)+'〜'+Math.min(i+BATCH,photos.length)+' / '+photos.length+'枚';
 
-    // Fetch thumbnails and send to Gemini
+    // Step 1: Download
     var parts=[{text:'以下の写真それぞれを個別に分析してください。JSON形式で回答してください。\n\n各写真について:\n- tags: 写真の内容を表すタグの配列（日本語、3〜5個）。被写体、場所、シーン、季節、色などを含む\n- location: 撮影場所の推定（わかる場合、空文字でOK）\n\nJSON形式（photosは写真の順番通り）:\n{"photos":[{"tags":["タグ1","タグ2"],"location":"場所"}]}'}];
 
     var validBatch=[];
     for(var j=0;j<batch.length;j++){
+      var num=i+j+1;
+      updateRetagUI('📥 写真を取得中...',num);
       try{
-        // Download file content via Drive API (avoids CORS issues with thumbnail URLs)
         var resp=await fetch('https://www.googleapis.com/drive/v3/files/'+batch[j].id+'?alt=media&supportsAllDrives=true',
           {headers:{'Authorization':'Bearer '+accessToken}});
         if(!resp.ok)continue;
@@ -1120,19 +1158,23 @@ async function retagCurrentFolder(){
 
     if(!validBatch.length)continue;
 
+    // Step 2: AI analysis
+    updateRetagUI('🤖 AIが分析中...',Math.min(i+BATCH,total));
     try{
       var json=await callGemini(parts,2048);
       var results=json.photos||[];
+
+      // Step 3: Save tags
       for(var j=0;j<validBatch.length;j++){
         var r=results[j];
         if(!r)continue;
+        updateRetagUI('💾 タグを保存中...',i+j+1);
         var desc='';
         var dp=[];
         if(r.tags&&r.tags.length)dp.push(r.tags.map(function(t){return '#'+t}).join(' '));
         if(r.location)dp.push('📍 '+r.location);
         desc=dp.join('\n');
 
-        // Update file description in Drive
         try{
           await fetch('https://www.googleapis.com/drive/v3/files/'+validBatch[j].id+'?supportsAllDrives=true',{
             method:'PATCH',
@@ -1148,13 +1190,15 @@ async function retagCurrentFolder(){
     }
 
     // Rate limit
-    if(i+BATCH<photos.length)await new Promise(function(r){setTimeout(r,6000)});
+    if(i+BATCH<photos.length){
+      updateRetagUI('⏳ 待機中...',Math.min(i+BATCH,total));
+      await new Promise(function(r){setTimeout(r,6000)});
+    }
   }
 
   btn.disabled=false;btn.textContent='🏷️ AIで再タグ付け';
   prog.textContent='';
   showToast(updated+'枚をタグ更新しました'+(errs?' ('+errs+'件エラー)':''));
-  // Reload to show updated descriptions
   loadBrowseFolder(browseCurrentFolderId,browsePath[browsePath.length-1].name,false);
 }
 
@@ -1179,6 +1223,85 @@ function renderBrowseBreadcrumb(){
     else h+='<strong>'+escapeHtml(browsePath[i].name)+'</strong>';
   }
   el.innerHTML=h;
+}
+
+// ==================== Photo Detail ====================
+function showPhotoDetail(idx){
+  var p=browseCurrentPhotos[idx];
+  if(!p)return;
+
+  var overlay=document.getElementById('photo-detail');
+  var imgC=document.getElementById('photo-detail-img');
+  var nameEl=document.getElementById('photo-detail-name');
+  var metaEl=document.getElementById('photo-detail-meta');
+  var openBtn=document.getElementById('photo-detail-open');
+
+  // Image/video
+  if(p.mimeType&&p.mimeType.indexOf('video/')===0){
+    imgC.innerHTML='<video src="https://www.googleapis.com/drive/v3/files/'+p.id+'?alt=media&supportsAllDrives=true&access_token='+encodeURIComponent(accessToken)+'" controls playsinline style="width:100%;border-radius:12px;max-height:60vh"></video>';
+  }else{
+    var thumbLarge=(p.thumbnailLink||'').replace(/=s\d+/,'=s1200');
+    imgC.innerHTML='<img src="'+(thumbLarge||'')+'" alt="">';
+  }
+
+  nameEl.textContent=p.name;
+  openBtn.href=p.webViewLink||'';
+
+  // Build meta rows
+  var h='';
+
+  // Date
+  if(p.createdTime){
+    var d=new Date(p.createdTime);
+    var dateStr=d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate()+' '+d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');
+    h+='<div class="photo-detail-row"><span class="icon">📅</span><div><div class="label">日時</div><div class="value">'+dateStr+'</div></div></div>';
+  }
+
+  // Location from EXIF
+  var meta=p.imageMediaMetadata||{};
+  if(meta.location&&meta.location.latitude){
+    var lat=meta.location.latitude;
+    var lng=meta.location.longitude;
+    var mapUrl='https://www.google.com/maps?q='+lat+','+lng;
+    h+='<div class="photo-detail-row"><span class="icon">📍</span><div><div class="label">撮影場所</div><div class="value"><a href="'+mapUrl+'" target="_blank">地図で見る ('+lat.toFixed(4)+', '+lng.toFixed(4)+')</a></div></div></div>';
+  }
+
+  // Location from description (AI)
+  var desc=p.description||'';
+  var locMatch=desc.match(/📍\s*(.+)/);
+  if(locMatch){
+    var locText=locMatch[1].trim();
+    var searchUrl='https://www.google.com/maps/search/'+encodeURIComponent(locText);
+    h+='<div class="photo-detail-row"><span class="icon">🤖</span><div><div class="label">AI推定場所</div><div class="value"><a href="'+searchUrl+'" target="_blank">'+escapeHtml(locText)+'</a></div></div></div>';
+  }
+
+  // Tags from description
+  var tags=desc.match(/#\S+/g)||[];
+  if(tags.length){
+    h+='<div class="photo-detail-row"><span class="icon">🏷️</span><div><div class="label">タグ</div><div class="photo-detail-tags">';
+    for(var i=0;i<tags.length;i++)h+='<span class="ai-tag">'+escapeHtml(tags[i])+'</span>';
+    h+='</div></div></div>';
+  }
+
+  // Camera info
+  if(meta.cameraMake||meta.cameraModel){
+    h+='<div class="photo-detail-row"><span class="icon">📷</span><div><div class="label">カメラ</div><div class="value">'+escapeHtml((meta.cameraMake||'')+' '+(meta.cameraModel||''))+'</div></div></div>';
+  }
+
+  // Size
+  if(meta.width&&meta.height){
+    h+='<div class="photo-detail-row"><span class="icon">📐</span><div><div class="label">サイズ</div><div class="value">'+meta.width+' × '+meta.height+'</div></div></div>';
+  }
+
+  if(!h)h='<div style="color:#8a7e6e;font-size:.85em">メタデータなし</div>';
+  metaEl.innerHTML=h;
+  overlay.classList.add('active');
+  document.body.style.overflow='hidden';
+}
+
+function closePhotoDetail(){
+  document.getElementById('photo-detail').classList.remove('active');
+  document.body.style.overflow='';
 }
 
 // ==================== Search ====================
