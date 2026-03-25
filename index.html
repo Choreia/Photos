@@ -549,7 +549,7 @@ async function onTokenResponse(resp){
     setUser(about.user);
     if(isBlockedDomain(currentUser.domain)){showToast('組織アカウントでログインしてください');handleSignOut();return;}
     showLoggedIn();await findConfig();
-  }catch(e){showToast('エラー: '+e.message);showView('welcome');}
+  }catch(e){showToast('😥 ログインに問題がありました。もう一度お試しください');showView('welcome');}
 }
 function setUser(u){currentUser.email=u.emailAddress||'';currentUser.name=u.displayName||currentUser.email;currentUser.domain=currentUser.email.split('@')[1]||'';currentUser.photo=u.photoLink||'';}
 function showLoggedIn(){
@@ -627,7 +627,7 @@ async function loadSharedDrives(){
     if(!dr.length){c.innerHTML='<p style="color:#8a7e6e">共有ドライブなし</p>';return;}
     var h='<div class="drive-list">';for(var i=0;i<dr.length;i++)h+='<div class="drive-item" data-id="'+dr[i].id+'" data-name="'+escapeAttr(dr[i].name)+'" onclick="selectDrive(this)"><span class="icon">💾</span><span class="name">'+escapeHtml(dr[i].name)+'</span></div>';
     c.innerHTML=h+'</div>';
-  }catch(e){c.innerHTML='<p style="color:#c0392b">エラー</p>';}
+  }catch(e){c.innerHTML='<p style="color:#8a7e6e;font-size:.9em">😥 読み込めませんでした</p>';}
 }
 function selectDrive(el){document.querySelectorAll('.drive-item').forEach(function(x){x.classList.remove('selected')});el.classList.add('selected');setupDriveId=el.getAttribute('data-id');setupDriveName=el.getAttribute('data-name');setupFolderId=setupDriveId;setupFolderName=setupDriveName;setupFolderPath=[{id:setupDriveId,name:setupDriveName}];document.getElementById('setup-step2').style.display='';loadSetupFolders(setupDriveId);updateSetupBtn();}
 async function loadSetupFolders(pid){
@@ -636,7 +636,7 @@ async function loadSetupFolders(pid){
     var f=d.files||[];if(!f.length){c.innerHTML='<p style="color:#8a7e6e;font-size:.85em;padding:12px">サブフォルダなし</p>';return;}
     var h='<div class="folder-list-setup">';for(var i=0;i<f.length;i++)h+='<div class="folder-item-setup" data-id="'+f[i].id+'" data-name="'+escapeAttr(f[i].name)+'" onclick="selectSetupFolder(this)"><span class="icon">📁</span><span class="name">'+escapeHtml(f[i].name)+'</span><span class="arrow" onclick="event.stopPropagation();openSetupFolder(\''+f[i].id+'\',\''+escapeAttr(f[i].name)+'\')">▶</span></div>';
     c.innerHTML=h+'</div>';
-  }catch(e){c.innerHTML='<p style="color:#c0392b">エラー</p>';}
+  }catch(e){c.innerHTML='<p style="color:#8a7e6e;font-size:.9em">😥 読み込めませんでした</p>';}
 }
 function selectSetupFolder(el){document.querySelectorAll('.folder-item-setup').forEach(function(x){x.classList.remove('selected')});el.classList.add('selected');setupFolderId=el.getAttribute('data-id');setupFolderName=el.getAttribute('data-name');updateSetupBtn();}
 function openSetupFolder(id,name){setupFolderPath.push({id:id,name:name});setupFolderId=id;setupFolderName=name;loadSetupFolders(id);updateSetupBtn();}
@@ -649,7 +649,7 @@ async function confirmSetup(){
   try{var m=JSON.stringify({name:CONFIG_FILENAME,parents:[setupFolderId],mimeType:'application/json'});var f=new FormData();f.append('metadata',new Blob([m],{type:'application/json'}));f.append('file',new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'}));
     var r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',{method:'POST',headers:{'Authorization':'Bearer '+accessToken},body:f});
     if(!r.ok)throw new Error('Save failed');var fl=await r.json();orgConfig=cfg;orgConfig.configFileId=fl.id;showToast('完了！');showMainView();
-  }catch(e){showToast('エラー');b.disabled=false;b.textContent='「'+setupFolderName+'」に決定';}
+  }catch(e){showToast('😥 設定の保存に失敗しました');b.disabled=false;b.textContent='「'+setupFolderName+'」に決定';}
 }
 
 // ==================== Main ====================
@@ -753,7 +753,7 @@ var overrideMode=''; // 'custom','existing'
 var GEMINI_FALLBACK_MODELS=['gemini-2.5-flash','gemini-2.0-flash','gemini-1.5-flash'];
 
 async function callGemini(parts,maxTokens){
-  if(!GEMINI_API_KEY){throw new Error('Gemini APIキーが未設定です。管理者設定から設定してください');}
+  if(!GEMINI_API_KEY){throw new Error('🔑 AI機能を使うにはAPIキーの設定が必要です。管理者設定から登録してください');}
   var body={contents:[{parts:parts}],generationConfig:{temperature:0.2,maxOutputTokens:maxTokens||2048,responseMimeType:'application/json'}};
   var lastErr='';
   for(var m=0;m<GEMINI_FALLBACK_MODELS.length;m++){
@@ -768,7 +768,7 @@ async function callGemini(parts,maxTokens){
           await new Promise(function(r){setTimeout(r,3000)});
           continue;
         }
-        if(!res.ok){var err='';try{err=JSON.stringify(await res.json())}catch(x){}throw new Error('Gemini API '+res.status+': '+err);}
+        if(!res.ok){var err='';try{var ej=await res.json();err=ej.error&&ej.error.message||''}catch(x){}console.error('Gemini API '+res.status,err);throw new Error('Gemini API '+res.status);}
         var data=await res.json();
         var text=data.candidates[0].content.parts[0].text;
         return JSON.parse(text.match(/[\[{][\s\S]*[\]}]/)[0]);
@@ -778,7 +778,7 @@ async function callGemini(parts,maxTokens){
       }
     }
   }
-  throw new Error(lastErr||'全モデルが利用不可です。しばらくしてから再試行してください');
+  throw new Error('😅 AIが混み合っています。少し待ってからもう一度お試しください');
 }
 
 function getFileThumb(file){
@@ -909,7 +909,7 @@ async function analyzePhotos(){
   }catch(e){
     console.error('Gemini analysis error:',e);
     document.getElementById('ai-loading').style.display='none';
-    document.getElementById('ai-results').innerHTML='<div class="ai-section"><p style="color:#c0392b">AI分析エラー: '+escapeHtml(e.message)+'</p></div>';
+    document.getElementById('ai-results').innerHTML='<div class="ai-section" style="text-align:center;padding:20px"><div style="font-size:2em;margin-bottom:8px">😅</div><p style="color:#5a5044;font-size:.9em">'+(GEMINI_API_KEY?'AIがちょっとお休み中です。もう一度お試しください':'🔑 AI機能を使うには管理者設定からAPIキーを登録してください')+'</p></div>';
     document.getElementById('ai-results').style.display='';
     aiAnalysis={tags:[],location:'',folderSuggestion:''};
     photoGroups=[{folderName:'',photoIndices:selectedFiles.map(function(_,i){return i}),tags:[],location:''}];
@@ -1051,7 +1051,7 @@ async function loadExistingFolders(){
     if(!f.length){c.innerHTML='<p style="color:#8a7e6e;font-size:.85em">既存フォルダなし</p>';return;}
     var h='';for(var i=0;i<f.length;i++)h+='<div class="folder-item-setup" data-id="'+f[i].id+'" data-name="'+escapeAttr(f[i].name)+'" onclick="selectExistingFolder(this)"><span class="icon">📁</span><span class="name">'+escapeHtml(f[i].name)+'</span></div>';
     c.innerHTML=h;
-  }catch(e){c.innerHTML='<p style="color:#c0392b">エラー</p>';}
+  }catch(e){c.innerHTML='<p style="color:#8a7e6e;font-size:.9em">😥 読み込めませんでした</p>';}
 }
 function selectExistingFolder(el){
   document.querySelectorAll('#override-existing-folders .folder-item-setup').forEach(function(x){x.classList.remove('selected')});
@@ -1247,7 +1247,7 @@ function loadBrowseFolder(folderId,folderName,isRoot){
     }
   }).catch(function(e){
     document.getElementById('browse-loading').style.display='none';
-    fc.innerHTML='<div class="browse-empty" style="color:#c0392b">読み込みエラー: '+escapeHtml(e.message)+'</div>';
+    fc.innerHTML='<div class="browse-empty">😥 読み込みに失敗しました。再読み込みしてください</div>';
   });
 }
 
@@ -1386,7 +1386,7 @@ async function loadSnsFolders(){
       h+='<div class="folder-item-setup" onclick="generateFromFolder(\''+snsFolders[i].id+'\',\''+escapeAttr(snsFolders[i].name)+'\')"><span class="icon">📁</span><span class="name">'+escapeHtml(snsFolders[i].name)+'</span></div>';
     }
     c.innerHTML=h||'<p style="color:#8a7e6e;font-size:.85em">フォルダなし</p>';
-  }catch(e){c.innerHTML='<p style="color:#c0392b">エラー</p>';}
+  }catch(e){c.innerHTML='<p style="color:#8a7e6e;font-size:.9em">😥 読み込めませんでした</p>';}
 }
 
 async function generateFromFolder(folderId,folderName){
@@ -1426,7 +1426,7 @@ async function generateFromFolder(folderId,folderName){
     renderSnsPosts(posts,photos);
   }catch(e){
     loading.style.display='none';
-    results.innerHTML='<div class="browse-empty" style="color:#c0392b">エラー: '+escapeHtml(e.message)+'</div>';
+    results.innerHTML='<div class="browse-empty">😅 '+(GEMINI_API_KEY?'AIがうまく応答しませんでした。もう一度お試しください':'AI機能を使うには管理者設定からAPIキーを登録してください')+'</div>';
   }
 }
 
@@ -1468,7 +1468,7 @@ async function generateFromTheme(){
     renderSnsPosts(posts,photos);
   }catch(e){
     loading.style.display='none';
-    results.innerHTML='<div class="browse-empty" style="color:#c0392b">エラー: '+escapeHtml(e.message)+'</div>';
+    results.innerHTML='<div class="browse-empty">😅 '+(GEMINI_API_KEY?'AIがうまく応答しませんでした。もう一度お試しください':'AI機能を使うには管理者設定からAPIキーを登録してください')+'</div>';
   }
 }
 
@@ -1590,7 +1590,7 @@ async function saveDraft(idx){
     drafts.push(draft);
     await saveDraftsData(drafts);
     showToast('下書きを保存しました'+(schedule?' (予約: '+new Date(schedule).toLocaleString('ja-JP')+')':''));
-  }catch(e){showToast('保存エラー: '+e.message);}
+  }catch(e){showToast('😥 下書きの保存に失敗しました');}
 }
 
 async function loadDraftsData(){
@@ -1649,7 +1649,7 @@ async function loadDrafts(){
       h+='</div></div>';
     }
     c.innerHTML=h;
-  }catch(e){c.innerHTML='<div class="browse-empty" style="color:#c0392b">読み込みエラー</div>';}
+  }catch(e){c.innerHTML='<div class="browse-empty">😥 下書きを読み込めませんでした</div>';}
 }
 
 async function deleteDraft(idx){
@@ -1659,7 +1659,7 @@ async function deleteDraft(idx){
     await saveDraftsData(drafts);
     showToast('下書きを削除しました');
     loadDrafts();
-  }catch(e){showToast('エラー');}
+  }catch(e){showToast('😥 削除に失敗しました');}
 }
 
 function useDraft(idx){
@@ -1712,7 +1712,7 @@ async function loadSnsPickFolders(){
       h+='<div class="folder-item-setup" onclick="pickSnsFolder(\''+f[i].id+'\')"><span class="icon">📁</span><span class="name">'+escapeHtml(f[i].name)+'</span></div>';
     }
     c.innerHTML=h||'<p style="color:#8a7e6e;font-size:.85em;padding:12px">フォルダなし</p>';
-  }catch(e){c.innerHTML='<p style="color:#c0392b">エラー</p>';}
+  }catch(e){c.innerHTML='<p style="color:#8a7e6e;font-size:.9em">😥 読み込めませんでした</p>';}
 }
 
 async function pickSnsFolder(folderId){
@@ -1746,7 +1746,7 @@ async function pickSnsFolder(folderId){
     grid.innerHTML=h;
     showToast(added+'枚の写真を追加しました');
   }catch(e){
-    c.innerHTML='<p style="color:#c0392b">エラー</p>';
+    c.innerHTML='<p style="color:#8a7e6e;font-size:.9em">😥 読み込めませんでした</p>';
   }
 }
 
@@ -1779,7 +1779,7 @@ async function rewriteSnsText(idx){
     snsPostData[idx].text=newText;
     document.getElementById('sns-rewrite-'+idx).value='';
     showToast('投稿文を修正しました');
-  }catch(e){showToast('修正エラー: '+e.message);}
+  }catch(e){showToast('😅 AIによる修正に失敗しました。もう一度お試しください');}
   btn.disabled=false;btn.textContent='修正';
 }
 function getSnsText(idx){return document.getElementById('sns-text-'+idx).value;}
@@ -2035,7 +2035,7 @@ async function doSearch(){
     rc.innerHTML=html+'</div>';
   }catch(e){
     document.getElementById('search-loading').style.display='none';
-    rc.innerHTML='<div class="loading-state">検索エラー: '+escapeHtml(e.message)+'</div>';
+    rc.innerHTML='<div class="loading-state">😥 検索に失敗しました。もう一度お試しください</div>';
   }
 }
 
