@@ -160,6 +160,29 @@ input[type="file"]{display:none}
 .sns-photo-grid img{width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;opacity:.4;transition:all .15s}
 .sns-photo-grid img.selected{opacity:1;outline:3px solid #a0522d;outline-offset:-2px}
 .sns-photo-grid img:active{transform:scale(.9)}
+
+/* Photo picker modal */
+.picker-overlay{display:none;position:fixed;inset:0;background:rgba(44,36,24,.9);z-index:260;overflow:hidden}
+.picker-overlay.active{display:flex;flex-direction:column}
+.picker-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;color:#fff;flex-shrink:0}
+.picker-header .title{font-size:1em;font-weight:600}
+.picker-header button{background:none;border:none;color:#fff;font-size:1em;cursor:pointer;padding:4px 8px}
+.picker-header .done-btn{background:#a0522d;border-radius:8px;padding:6px 16px;font-weight:600;font-size:.85em}
+.picker-body{flex:1;overflow-y:auto;padding:8px}
+.picker-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px}
+.picker-grid .picker-item{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;cursor:pointer}
+.picker-grid .picker-item img{width:100%;height:100%;object-fit:cover;display:block}
+.picker-grid .picker-item .check-mark{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:12px;color:transparent;background:rgba(0,0,0,.3)}
+.picker-grid .picker-item.selected .check-mark{background:#a0522d;border-color:#a0522d;color:#fff}
+.picker-grid .picker-item.selected{outline:3px solid #a0522d;outline-offset:-3px}
+
+/* Photo editor in picker */
+.picker-editor{display:none;flex-direction:column;align-items:center;padding:16px;flex:1}
+.picker-editor.active{display:flex}
+.picker-editor canvas{max-width:100%;max-height:50vh;border-radius:8px;background:#000}
+.picker-editor-tools{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;justify-content:center}
+.picker-editor-tools button{padding:8px 16px;border:none;border-radius:10px;background:rgba(255,255,255,.15);color:#fff;font-size:.85em;font-weight:600;cursor:pointer;font-family:inherit}
+.picker-editor-tools button:active{background:rgba(255,255,255,.25)}
 .sns-post-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .btn-sns{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:none;border-radius:10px;font-size:.8em;font-weight:600;cursor:pointer;font-family:inherit;color:#fff}
 .btn-sns:active{opacity:.85}
@@ -467,6 +490,33 @@ input[type="file"]{display:none}
 
 <div class="footer-action" id="footer-action">
   <button class="btn-primary" id="transfer-btn" disabled onclick="startUpload()">写真を選択してください</button>
+</div>
+
+<!-- Photo Picker -->
+<div class="picker-overlay" id="photo-picker">
+  <div class="picker-header">
+    <button onclick="closePhotoPicker()">✕</button>
+    <span class="title" id="picker-title">写真を選択</span>
+    <button class="done-btn" onclick="closePhotoPicker()">完了</button>
+  </div>
+  <div class="picker-body" id="picker-body">
+    <div style="padding:8px 4px;display:flex;gap:8px;margin-bottom:8px">
+      <button class="btn-text" style="color:#fff;font-size:.8em" onclick="openSnsPhotoFolder(pickerPostIdx)">📁 他のフォルダから追加</button>
+    </div>
+    <div class="picker-grid" id="picker-grid"></div>
+  </div>
+  <div class="picker-editor" id="picker-editor">
+    <canvas id="picker-canvas"></canvas>
+    <div class="picker-editor-tools">
+      <button onclick="editorRotate()">↻ 回転</button>
+      <button onclick="editorFlip()">↔ 反転</button>
+      <button onclick="editorCropSquare()">◻ 正方形</button>
+      <button onclick="editorCrop169()">▭ 16:9</button>
+      <button onclick="editorReset()">↩ 元に戻す</button>
+      <button onclick="editorSave()" style="background:#a0522d">✓ 適用</button>
+      <button onclick="editorCancel()">✕ キャンセル</button>
+    </div>
+  </div>
 </div>
 
 <!-- Photo Detail -->
@@ -1502,12 +1552,15 @@ function renderSnsPosts(posts,photos){
     h+='<textarea class="sns-post-textarea" id="sns-text-'+i+'" oninput="snsPostData['+i+'].text=this.value;autoResize(this)">'+escapeHtml(p.text||'')+'</textarea>';
     // Photo grid - all photos, selected ones highlighted
     h+='<div class="admin-add-row" style="margin-top:8px"><input type="text" class="admin-add-input" id="sns-rewrite-'+i+'" placeholder="AIに修正依頼（例: もっとカジュアルに、敬語で等）" onkeydown="if(event.key===\'Enter\')rewriteSnsText('+i+')"><button class="admin-add-btn" onclick="rewriteSnsText('+i+')">修正</button></div>';
-    h+='<div style="display:flex;align-items:center;gap:8px;margin-top:8px"><span style="font-size:.75em;color:#8a7e6e">写真をタップして選択/解除:</span><button class="btn-text" style="font-size:.75em" onclick="openSnsPhotoFolder('+i+')">📁 他のフォルダから追加</button></div>';
-    h+='<div class="sns-photo-grid" id="sns-photos-'+i+'">';
-    for(var j=0;j<photos.length;j++){
-      if(!photos[j].thumbnailLink)continue;
-      h+='<img src="'+escapeAttr(photos[j].thumbnailLink)+'" data-idx="'+j+'" class="'+(selectedIds.has(j)?'selected':'')+'" onclick="toggleSnsPhoto('+i+','+j+')" title="'+escapeAttr(photos[j].name)+'">';
-    }
+    h+='<div style="display:flex;align-items:center;gap:8px;margin-top:10px">';
+    h+='<button class="btn-secondary" style="width:auto;margin:0;padding:8px 16px;font-size:.85em" onclick="openPhotoPicker('+i+')">🖼 写真を選択・編集</button>';
+    h+='<span style="font-size:.8em;color:#8a7e6e" id="sns-photo-count-'+i+'">'+selectedIds.size+'枚選択中</span>';
+    h+='</div>';
+    h+='<div class="sns-photo-grid" id="sns-photos-'+i+'" style="margin-top:6px">';
+    // Show selected only as small previews
+    selectedIds.forEach(function(j){
+      if(photos[j]&&photos[j].thumbnailLink)h+='<img src="'+escapeAttr(photos[j].thumbnailLink)+'" class="selected" style="opacity:1" title="'+escapeAttr(photos[j].name)+'">';
+    });
     h+='</div>';
     // Action buttons
     h+='<div class="sns-post-btns" style="justify-content:center">';
@@ -1679,6 +1732,146 @@ function useDraft(idx){
     }
     showToast('下書きを読み込みました');
   });
+}
+
+// ==================== Photo Picker ====================
+var pickerPostIdx=-1;
+var editorImg=null;
+var editorRotation=0;
+var editorFlipped=false;
+var editorCropRatio=0; // 0=none, 1=1:1, 16/9
+var editorPhotoIdx=-1;
+
+function openPhotoPicker(postIdx){
+  pickerPostIdx=postIdx;
+  var overlay=document.getElementById('photo-picker');
+  overlay.classList.add('active');
+  document.body.style.overflow='hidden';
+  document.getElementById('picker-editor').classList.remove('active');
+  document.getElementById('picker-body').style.display='';
+  renderPickerGrid();
+}
+
+function closePhotoPicker(){
+  document.getElementById('photo-picker').classList.remove('active');
+  document.body.style.overflow='';
+  // Update the inline preview
+  updateSnsPhotoPreview(pickerPostIdx);
+}
+
+function renderPickerGrid(){
+  var grid=document.getElementById('picker-grid');
+  var d=snsPostData[pickerPostIdx];
+  var h='';
+  for(var j=0;j<snsPostPhotos.length;j++){
+    if(!snsPostPhotos[j].thumbnailLink)continue;
+    var sel=d.selectedPhotoIds.has(j);
+    h+='<div class="picker-item'+(sel?' selected':'')+'" data-idx="'+j+'" onclick="togglePickerPhoto('+j+')">'
+      +'<img src="'+escapeAttr(snsPostPhotos[j].thumbnailLink.replace(/=s\d+/,'=s400'))+'" alt="" loading="lazy">'
+      +'<span class="check-mark">✓</span>'
+      +'</div>';
+  }
+  grid.innerHTML=h;
+  document.getElementById('picker-title').textContent=d.selectedPhotoIds.size+'枚選択中';
+}
+
+function togglePickerPhoto(photoIdx){
+  var d=snsPostData[pickerPostIdx];
+  if(d.selectedPhotoIds.has(photoIdx))d.selectedPhotoIds.delete(photoIdx);
+  else d.selectedPhotoIds.add(photoIdx);
+  renderPickerGrid();
+}
+
+function updateSnsPhotoPreview(postIdx){
+  var d=snsPostData[postIdx];
+  var grid=document.getElementById('sns-photos-'+postIdx);
+  var count=document.getElementById('sns-photo-count-'+postIdx);
+  if(count)count.textContent=d.selectedPhotoIds.size+'枚選択中';
+  var h='';
+  d.selectedPhotoIds.forEach(function(j){
+    if(snsPostPhotos[j]&&snsPostPhotos[j].thumbnailLink){
+      h+='<img src="'+escapeAttr(snsPostPhotos[j].thumbnailLink)+'" class="selected" style="opacity:1;cursor:pointer" title="'+escapeAttr(snsPostPhotos[j].name)+'" onclick="openPhotoEditor('+postIdx+','+j+')">';
+    }
+  });
+  if(grid)grid.innerHTML=h;
+}
+
+// ==================== Photo Editor ====================
+function openPhotoEditor(postIdx,photoIdx){
+  pickerPostIdx=postIdx;
+  editorPhotoIdx=photoIdx;
+  editorRotation=0;editorFlipped=false;editorCropRatio=0;
+  var overlay=document.getElementById('photo-picker');
+  if(!overlay.classList.contains('active')){overlay.classList.add('active');document.body.style.overflow='hidden';}
+  document.getElementById('picker-body').style.display='none';
+  document.getElementById('picker-editor').classList.add('active');
+
+  var p=snsPostPhotos[photoIdx];
+  var img=new Image();
+  img.crossOrigin='anonymous';
+  img.onload=function(){editorImg=img;drawEditor();};
+  img.src=p.thumbnailLink.replace(/=s\d+/,'=s1200');
+}
+
+function drawEditor(){
+  if(!editorImg)return;
+  var canvas=document.getElementById('picker-canvas');
+  var ctx=canvas.getContext('2d');
+  var w=editorImg.naturalWidth,h=editorImg.naturalHeight;
+
+  // Apply rotation
+  var rotated=(editorRotation%2!==0);
+  var cw=rotated?h:w,ch=rotated?w:h;
+
+  // Apply crop ratio
+  if(editorCropRatio>0){
+    var targetRatio=editorCropRatio;
+    if(cw/ch>targetRatio){cw=Math.round(ch*targetRatio);}
+    else{ch=Math.round(cw/targetRatio);}
+  }
+
+  // Scale down for display
+  var maxW=Math.min(window.innerWidth-32,600);
+  var maxH=window.innerHeight*0.5;
+  var scale=Math.min(maxW/cw,maxH/ch,1);
+  canvas.width=Math.round(cw*scale);
+  canvas.height=Math.round(ch*scale);
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.save();
+  ctx.translate(canvas.width/2,canvas.height/2);
+  ctx.rotate(editorRotation*Math.PI/2);
+  if(editorFlipped)ctx.scale(-1,1);
+  var dw=rotated?canvas.height:canvas.width;
+  var dh=rotated?canvas.width:canvas.height;
+  ctx.drawImage(editorImg,-dw/2,-dh/2,dw,dh);
+  ctx.restore();
+}
+
+function editorRotate(){editorRotation=(editorRotation+1)%4;drawEditor();}
+function editorFlip(){editorFlipped=!editorFlipped;drawEditor();}
+function editorCropSquare(){editorCropRatio=editorCropRatio===1?0:1;drawEditor();}
+function editorCrop169(){editorCropRatio=editorCropRatio===16/9?0:16/9;drawEditor();}
+function editorReset(){editorRotation=0;editorFlipped=false;editorCropRatio=0;drawEditor();}
+
+function editorSave(){
+  // Save edited image as blob and replace the photo's thumbnail
+  var canvas=document.getElementById('picker-canvas');
+  canvas.toBlob(function(blob){
+    if(!blob)return;
+    var url=URL.createObjectURL(blob);
+    snsPostPhotos[editorPhotoIdx].thumbnailLink=url;
+    snsPostPhotos[editorPhotoIdx]._editedBlob=blob;
+    editorCancel();
+    updateSnsPhotoPreview(pickerPostIdx);
+    showToast('写真を加工しました');
+  },'image/jpeg',0.9);
+}
+
+function editorCancel(){
+  document.getElementById('picker-editor').classList.remove('active');
+  document.getElementById('picker-body').style.display='';
+  renderPickerGrid();
 }
 
 var snsPhotoPickPostIdx=-1;
