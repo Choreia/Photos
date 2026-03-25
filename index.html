@@ -472,6 +472,11 @@ async function onTokenResponse(resp) {
   if (resp.error) { showToast('ログインに失敗しました'); return; }
   accessToken = resp.access_token;
   sessionStorage.setItem('choreia_photos_token', accessToken);
+  // Debug: granted scopes
+  console.log('Granted scopes:', resp.scope);
+  if (resp.scope && resp.scope.indexOf('photoslibrary') === -1) {
+    alert('警告: Google フォトの権限が付与されていません。\n\n付与されたスコープ:\n' + resp.scope);
+  }
   showView('loading');
   try {
     var about = await apiFetch('https://www.googleapis.com/drive/v3/about?fields=user');
