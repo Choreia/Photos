@@ -105,6 +105,30 @@ input[type="file"]{display:none}
 .browse-photo .name{position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,.6));color:#fff;font-size:.65em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .browse-empty{text-align:center;padding:32px 20px;color:#8a7e6e;font-size:.9em}
 
+/* Groups */
+.group-section{padding:14px;background:#fdf5f0;border-radius:12px;border:1px solid #ece6de;margin-bottom:10px}
+.group-section h3{font-size:.9em;color:#a0522d;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.group-thumbs{display:flex;gap:4px;overflow-x:auto;margin-bottom:8px;padding-bottom:4px}
+.group-thumbs img{width:48px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0}
+.group-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+.group-folder-name{display:flex;align-items:center;gap:8px;margin-top:8px}
+.group-folder-input{flex:1;padding:8px 12px;border:2px solid #ece6de;border-radius:10px;font-size:.85em;font-family:inherit;background:#fff}
+.group-folder-input:focus{border-color:#a0522d;outline:none}
+.group-warning{background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:8px 12px;margin-top:8px;font-size:.8em;color:#856404}
+
+/* Admin */
+.admin-panel{margin-bottom:16px}
+.admin-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.admin-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border:1px solid #ece6de;border-radius:10px;font-size:.85em}
+.admin-item .email{flex:1;color:#5a3e28;font-weight:500}
+.admin-item .role{font-size:.75em;color:#8a7e6e}
+.admin-item .btn-remove{background:none;border:none;color:#c0392b;cursor:pointer;font-size:.8em;padding:4px 8px}
+.admin-add-row{display:flex;gap:8px}
+.admin-add-input{flex:1;padding:8px 12px;border:2px solid #ece6de;border-radius:10px;font-size:.85em;font-family:inherit}
+.admin-add-input:focus{border-color:#a0522d;outline:none}
+.admin-add-btn{padding:8px 14px;background:#a0522d;color:#fff;border:none;border-radius:10px;font-size:.85em;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+.admin-add-btn:active{opacity:.85}
+
 /* Buttons */
 .btn-primary{display:block;width:100%;padding:14px;border:none;border-radius:14px;font-size:1em;font-weight:700;font-family:inherit;color:#fff;background:linear-gradient(135deg,#a0522d,#7a3d22);cursor:pointer;box-shadow:0 2px 8px rgba(122,61,34,.25)}
 .btn-primary:active:not(:disabled){opacity:.85}
@@ -214,7 +238,16 @@ input[type="file"]{display:none}
       <span class="admin-badge" id="admin-badge" style="display:none">管理者</span>
     </div>
     <div id="admin-actions" style="display:none;margin-bottom:8px;text-align:right">
-      <button class="btn-text" onclick="showSetup()">転送先を変更</button>
+      <button class="btn-text" onclick="toggleAdminPanel()">管理者設定</button>
+      <button class="btn-text" onclick="showSetup()" style="margin-left:8px">転送先を変更</button>
+    </div>
+    <div id="admin-panel" class="admin-panel card" style="display:none">
+      <h2>管理者の管理</h2>
+      <div id="admin-list" class="admin-list"></div>
+      <div class="admin-add-row">
+        <input type="email" class="admin-add-input" id="admin-add-email" placeholder="追加するメールアドレス" onkeydown="if(event.key==='Enter')addAdmin()">
+        <button class="admin-add-btn" onclick="addAdmin()">追加</button>
+      </div>
     </div>
 
     <!-- Tabs -->
@@ -245,26 +278,24 @@ input[type="file"]{display:none}
       <div class="card" id="ai-card" style="display:none">
         <h2>② AI分析結果</h2>
         <div id="ai-loading" style="display:none"><div class="loading-state" style="padding:16px"><div class="spinner"></div><div>Geminiが写真を分析中...</div></div></div>
-        <div id="ai-results" style="display:none">
-          <div class="ai-section">
-            <h3>🏷️ タグ</h3>
-            <div class="ai-tags" id="ai-tags"></div>
-            <div class="ai-location" id="ai-location"></div>
-            <h3 style="margin-top:12px">📁 フォルダ名の提案</h3>
-            <div class="ai-folder-suggest" id="ai-folder-suggest"></div>
-          </div>
-        </div>
+        <div id="ai-results" style="display:none"></div>
       </div>
 
       <!-- Folder selection -->
       <div class="card" id="folder-card" style="display:none">
         <h2>③ 保存先フォルダ</h2>
-        <div class="folder-options" id="folder-options"></div>
-        <div id="custom-folder-area" style="display:none;margin-top:8px">
-          <input type="text" class="folder-input" id="custom-folder-name" placeholder="フォルダ名を入力" oninput="updateTransferBtn()">
-        </div>
-        <div id="existing-folder-area" style="display:none;margin-top:8px">
-          <div id="existing-folders" class="folder-list-setup"></div>
+        <div id="folder-groups"></div>
+        <div style="margin-top:12px;border-top:1px solid #ece6de;padding-top:12px">
+          <button class="btn-text" id="folder-override-btn" onclick="toggleFolderOverride()">すべて1つのフォルダにまとめる</button>
+          <div id="folder-override-area" style="display:none;margin-top:8px">
+            <div class="folder-options" id="folder-override-options"></div>
+            <div id="override-custom-area" style="display:none;margin-top:8px">
+              <input type="text" class="folder-input" id="override-custom-name" placeholder="フォルダ名を入力" oninput="updateTransferBtn()">
+            </div>
+            <div id="override-existing-area" style="display:none;margin-top:8px">
+              <div id="override-existing-folders" class="folder-list-setup"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -438,7 +469,7 @@ function updateSetupBreadcrumb(){var el=document.getElementById('setup-breadcrum
 function updateSetupBtn(){var b=document.getElementById('setup-confirm-btn');b.disabled=!setupFolderId;b.textContent=setupFolderName?'「'+setupFolderName+'」に決定':'選択してください';}
 async function confirmSetup(){
   var b=document.getElementById('setup-confirm-btn');b.disabled=true;b.textContent='保存中...';
-  var cfg={domain:currentUser.domain,admin:currentUser.email,adminName:currentUser.name,folderId:setupFolderId,folderName:setupFolderName,driveId:setupDriveId,driveName:setupDriveName,createdAt:new Date().toISOString()};
+  var cfg={domain:currentUser.domain,admin:currentUser.email,admins:[currentUser.email],adminName:currentUser.name,folderId:setupFolderId,folderName:setupFolderName,driveId:setupDriveId,driveName:setupDriveName,createdAt:new Date().toISOString()};
   try{var m=JSON.stringify({name:CONFIG_FILENAME,parents:[setupFolderId],mimeType:'application/json'});var f=new FormData();f.append('metadata',new Blob([m],{type:'application/json'}));f.append('file',new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'}));
     var r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',{method:'POST',headers:{'Authorization':'Bearer '+accessToken},body:f});
     if(!r.ok)throw new Error('Save failed');var fl=await r.json();orgConfig=cfg;orgConfig.configFileId=fl.id;showToast('完了！');showMainView();
@@ -449,11 +480,72 @@ async function confirmSetup(){
 function showMainView(){
   showView('main');
   document.getElementById('dest-name').textContent=orgConfig.driveName+' / '+orgConfig.folderName;
-  var isAdmin=(currentUser.email===orgConfig.admin);
-  document.getElementById('admin-badge').style.display=isAdmin?'':'none';
-  document.getElementById('admin-actions').style.display=isAdmin?'':'none';
+  document.getElementById('admin-badge').style.display=isAdmin()?'':'none';
+  document.getElementById('admin-actions').style.display=isAdmin()?'':'none';
+  document.getElementById('admin-panel').style.display='none';
   document.getElementById('search-empty').style.display='';
   updateTransferBtn();
+}
+function isAdmin(){
+  if(!orgConfig)return false;
+  // Support both legacy single admin and admins array
+  var admins=orgConfig.admins||[orgConfig.admin];
+  return admins.indexOf(currentUser.email)!==-1;
+}
+function getAdmins(){
+  if(!orgConfig)return[];
+  return orgConfig.admins||[orgConfig.admin];
+}
+function toggleAdminPanel(){
+  var p=document.getElementById('admin-panel');
+  var visible=p.style.display!=='none';
+  p.style.display=visible?'none':'';
+  if(!visible)renderAdminList();
+}
+function renderAdminList(){
+  var admins=getAdmins();
+  var h='';
+  for(var i=0;i<admins.length;i++){
+    h+='<div class="admin-item"><span class="email">'+escapeHtml(admins[i])+'</span>';
+    if(admins[i]===orgConfig.admin||admins[i]===(orgConfig.admins&&orgConfig.admins[0])){
+      h+='<span class="role">オーナー</span>';
+    }else{
+      h+='<button class="btn-remove" onclick="removeAdmin(\''+escapeAttr(admins[i])+'\')">削除</button>';
+    }
+    h+='</div>';
+  }
+  document.getElementById('admin-list').innerHTML=h;
+}
+async function addAdmin(){
+  var input=document.getElementById('admin-add-email');
+  var email=input.value.trim().toLowerCase();
+  if(!email||email.indexOf('@')===-1){showToast('有効なメールアドレスを入力してください');return;}
+  var admins=getAdmins();
+  if(admins.indexOf(email)!==-1){showToast('既に管理者です');return;}
+  admins.push(email);
+  orgConfig.admins=admins;
+  input.value='';
+  renderAdminList();
+  await saveConfig();
+  showToast(email+' を管理者に追加しました');
+}
+async function removeAdmin(email){
+  var admins=getAdmins().filter(function(a){return a!==email});
+  if(!admins.length){showToast('管理者は最低1人必要です');return;}
+  orgConfig.admins=admins;
+  renderAdminList();
+  await saveConfig();
+  showToast(email+' を管理者から削除しました');
+}
+async function saveConfig(){
+  try{
+    var cfg=Object.assign({},orgConfig);
+    delete cfg.configFileId;
+    var r=await fetch('https://www.googleapis.com/upload/drive/v3/files/'+orgConfig.configFileId+'?uploadType=media&supportsAllDrives=true',{
+      method:'PATCH',headers:{'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify(cfg,null,2)
+    });
+    if(!r.ok)throw new Error('Save failed');
+  }catch(e){showToast('設定の保存に失敗しました');console.error('saveConfig error:',e);}
 }
 
 // ==================== Files ====================
@@ -473,58 +565,220 @@ function renderPreviews(){
 function removeFile(i){selectedFiles.splice(i,1);renderPreviews();if(selectedFiles.length===0){aiAnalysis=null;}updateTransferBtn();}
 
 // ==================== Gemini Analysis ====================
+var GEMINI_MODEL='gemini-2.5-flash';
+var fileAnalyses=[]; // per-file: [{tags:[], location:''}]
+var photoGroups=[]; // [{folderName, photoIndices:[], tags:[], location:'', privateWarning, privateReason}]
+var folderOverride=false; // true = ignore groups, use single folder
+var overrideMode=''; // 'custom','existing'
+
+async function callGemini(parts,maxTokens){
+  var body={contents:[{parts:parts}],generationConfig:{temperature:0.2,maxOutputTokens:maxTokens||2048,responseMimeType:'application/json'}};
+  var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODEL+':generateContent',{
+    method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},body:JSON.stringify(body)
+  });
+  if(!res.ok)throw new Error('Gemini API '+res.status);
+  var data=await res.json();
+  var text=data.candidates[0].content.parts[0].text;
+  return JSON.parse(text.match(/[\[{][\s\S]*[\]}]/)[0]);
+}
+
+function getFileThumb(file){
+  return URL.createObjectURL(file);
+}
+
+function extractVideoFrame(file){
+  return new Promise(function(resolve){
+    var video=document.createElement('video');
+    video.preload='metadata';
+    video.muted=true;
+    video.playsInline=true;
+    var url=URL.createObjectURL(file);
+    video.src=url;
+    video.onloadeddata=function(){
+      video.currentTime=Math.min(1,video.duration/2);
+    };
+    video.onseeked=function(){
+      var canvas=document.createElement('canvas');
+      canvas.width=Math.min(video.videoWidth,1024);
+      canvas.height=Math.round(canvas.width*(video.videoHeight/video.videoWidth));
+      canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
+      var dataUrl=canvas.toDataURL('image/jpeg',0.7);
+      URL.revokeObjectURL(url);
+      resolve(dataUrl.split(',')[1]);
+    };
+    video.onerror=function(){URL.revokeObjectURL(url);resolve(null);};
+    // Timeout fallback
+    setTimeout(function(){if(!video.seeked){URL.revokeObjectURL(url);resolve(null);}},10000);
+  });
+}
+
+async function fileToInlineData(file){
+  if(file.type&&file.type.indexOf('video/')===0){
+    var frame=await extractVideoFrame(file);
+    if(frame)return{inlineData:{mimeType:'image/jpeg',data:frame}};
+    return null;
+  }
+  var base64=await fileToBase64(file);
+  return{inlineData:{mimeType:file.type||'image/jpeg',data:base64}};
+}
+
 async function analyzePhotos(){
   var card=document.getElementById('ai-card');card.style.display='';
   document.getElementById('ai-loading').style.display='';document.getElementById('ai-results').style.display='none';
+  fileAnalyses=new Array(selectedFiles.length);
+  photoGroups=[];folderOverride=false;
 
   try{
-    // Analyze first 5 photos (or fewer)
-    var filesToAnalyze=selectedFiles.slice(0,5);
-    var parts=[{text:'以下の写真を分析してください。JSON形式で回答してください。\n\n必要な情報:\n- tags: 写真の内容を表すタグの配列（日本語、5〜10個）。被写体、場所、シーン、季節、色などを含む\n- location: 撮影場所の推定（わかる場合）\n- folderSuggestion: これらの写真をまとめるフォルダ名の提案（YYYYMM + 内容の形式、例: "202603 静岡大学視察"）\n- privateWarning: 業務と無関係な私用写真（自撮り、食事、ペット、家族写真など）が含まれる場合はtrue、業務関連ならfalse\n- privateReason: privateWarningがtrueの場合、その理由（例: "自撮り写真が含まれています"）\n\nJSON形式:\n{"tags":["タグ1","タグ2"],"location":"場所","folderSuggestion":"フォルダ名","privateWarning":false,"privateReason":""}'}];
+    // Build parts with all photos (up to 20) for grouping analysis
+    var maxForGrouping=Math.min(selectedFiles.length,20);
+    var photoNums=[];
+    var parts=[{text:'以下の'+maxForGrouping+'枚の写真（写真1〜写真'+maxForGrouping+'）を分析してください。\n\n'
+      +'重要: 写真が複数の異なるイベント・場所・日にちに属する場合は、グループに分けてください。\n'
+      +'同じイベントの写真は1つのグループにまとめてください。\n\n'
+      +'各グループについて:\n'
+      +'- folderName: フォルダ名の提案（YYYYMM + 内容の形式、例: "202603 静岡大学視察"）\n'
+      +'- photoNumbers: このグループに属する写真番号の配列（1始まり）\n'
+      +'- tags: グループ全体を表すタグの配列（日本語、5〜10個）\n'
+      +'- location: 撮影場所の推定（わかる場合）\n'
+      +'- privateWarning: 業務と無関係な私用写真が含まれる場合はtrue\n'
+      +'- privateReason: privateWarningがtrueの場合、その理由\n\n'
+      +'JSON形式:\n{"groups":[{"folderName":"名前","photoNumbers":[1,2,3],"tags":["タグ"],"location":"場所","privateWarning":false,"privateReason":""}]}'}];
 
-    for(var i=0;i<filesToAnalyze.length;i++){
-      var base64=await fileToBase64(filesToAnalyze[i]);
-      parts.push({inlineData:{mimeType:filesToAnalyze[i].type||'image/jpeg',data:base64}});
+    for(var i=0;i<maxForGrouping;i++){
+      var inlineData=await fileToInlineData(selectedFiles[i]);
+      if(inlineData)parts.push(inlineData);
+      photoNums.push(i);
     }
 
-    var body={contents:[{parts:parts}],generationConfig:{temperature:0.2,maxOutputTokens:1024,responseMimeType:'application/json'}};
-    var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',{
-      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},body:JSON.stringify(body)
-    });
+    var json=await callGemini(parts,4096);
+    var groups=json.groups||[json]; // fallback: single group
 
-    if(!res.ok)throw new Error('Gemini API '+res.status);
-    var data=await res.json();
-    var text=data.candidates[0].content.parts[0].text;
-    var json=JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+    // Normalize groups
+    photoGroups=[];
+    var assigned=new Set();
+    for(var g=0;g<groups.length;g++){
+      var grp=groups[g];
+      var indices=[];
+      var nums=grp.photoNumbers||grp.photos||[];
+      for(var j=0;j<nums.length;j++){
+        var idx=(nums[j]||1)-1; // 1-based to 0-based
+        if(idx>=0&&idx<selectedFiles.length&&!assigned.has(idx)){indices.push(idx);assigned.add(idx);}
+      }
+      if(!indices.length)continue;
+      photoGroups.push({
+        folderName:grp.folderName||grp.folderSuggestion||'',
+        photoIndices:indices,
+        tags:grp.tags||[],
+        location:grp.location||'',
+        privateWarning:grp.privateWarning||false,
+        privateReason:grp.privateReason||''
+      });
+    }
 
-    aiAnalysis={tags:json.tags||[],location:json.location||'',folderSuggestion:json.folderSuggestion||'',privateWarning:json.privateWarning||false,privateReason:json.privateReason||''};
+    // Assign any unassigned photos to first group or create new group
+    for(var i=0;i<selectedFiles.length;i++){
+      if(!assigned.has(i)){
+        if(photoGroups.length)photoGroups[0].photoIndices.push(i);
+        else photoGroups.push({folderName:'',photoIndices:[i],tags:[],location:'',privateWarning:false,privateReason:''});
+      }
+    }
 
-    // Show results
+    // Set per-file analyses from group data
+    for(var g=0;g<photoGroups.length;g++){
+      var grp=photoGroups[g];
+      for(var j=0;j<grp.photoIndices.length;j++){
+        fileAnalyses[grp.photoIndices[j]]={tags:grp.tags,location:grp.location};
+      }
+    }
+
+    // For backward compat, set aiAnalysis from first group
+    var fg=photoGroups[0]||{};
+    aiAnalysis={tags:fg.tags||[],location:fg.location||'',folderSuggestion:fg.folderName||''};
+
     document.getElementById('ai-loading').style.display='none';
     document.getElementById('ai-results').style.display='';
-    var tagsHtml='';for(var i=0;i<aiAnalysis.tags.length;i++)tagsHtml+='<span class="ai-tag">'+escapeHtml(aiAnalysis.tags[i])+'</span>';
-    document.getElementById('ai-tags').innerHTML=tagsHtml;
-    document.getElementById('ai-location').innerHTML=aiAnalysis.location?'📍 '+escapeHtml(aiAnalysis.location):'';
-    document.getElementById('ai-folder-suggest').textContent=aiAnalysis.folderSuggestion;
-
-    // Private photo warning
-    if(aiAnalysis.privateWarning){
-      showToast('⚠️ '+aiAnalysis.privateReason);
-      var warnHtml='<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;margin-top:12px;font-size:.85em;color:#856404">⚠️ <strong>私用写真の可能性:</strong> '+escapeHtml(aiAnalysis.privateReason)+'</div>';
-      document.getElementById('ai-results').querySelector('.ai-section').insertAdjacentHTML('beforeend',warnHtml);
-    }
-
-    // Show folder options
+    renderAiResults();
     showFolderOptions();
+    updateTransferBtn();
+
+    // Phase 2: Background per-file analysis for individual tags
+    if(selectedFiles.length>1)analyzeAllInBackground();
+
   }catch(e){
     console.error('Gemini analysis error:',e);
     document.getElementById('ai-loading').style.display='none';
     document.getElementById('ai-results').innerHTML='<div class="ai-section"><p style="color:#c0392b">AI分析エラー: '+escapeHtml(e.message)+'</p></div>';
     document.getElementById('ai-results').style.display='';
     aiAnalysis={tags:[],location:'',folderSuggestion:''};
+    photoGroups=[{folderName:'',photoIndices:selectedFiles.map(function(_,i){return i}),tags:[],location:''}];
     showFolderOptions();
+    updateTransferBtn();
   }
-  updateTransferBtn();
+}
+
+function renderAiResults(){
+  var h='';
+  for(var g=0;g<photoGroups.length;g++){
+    var grp=photoGroups[g];
+    h+='<div class="group-section">';
+    h+='<h3>📁 '+(photoGroups.length>1?'グループ'+(g+1)+': ':'')+escapeHtml(grp.folderName||'未分類')+'</h3>';
+    // Thumbnails
+    h+='<div class="group-thumbs">';
+    for(var j=0;j<Math.min(grp.photoIndices.length,10);j++){
+      h+='<img src="'+getFileThumb(selectedFiles[grp.photoIndices[j]])+'" alt="">';
+    }
+    if(grp.photoIndices.length>10)h+='<span style="display:flex;align-items:center;font-size:.75em;color:#8a7e6e;padding:0 8px">+'+( grp.photoIndices.length-10)+'</span>';
+    h+='</div>';
+    // Tags
+    h+='<div class="group-tags">';
+    for(var j=0;j<grp.tags.length;j++)h+='<span class="ai-tag">'+escapeHtml(grp.tags[j])+'</span>';
+    h+='</div>';
+    if(grp.location)h+='<div style="font-size:.8em;color:#5a5044">📍 '+escapeHtml(grp.location)+'</div>';
+    if(grp.privateWarning)h+='<div class="group-warning">⚠️ '+escapeHtml(grp.privateReason)+'</div>';
+    h+='</div>';
+  }
+  // Per-file progress
+  var analyzed=fileAnalyses.filter(function(f){return f}).length;
+  var total=selectedFiles.length;
+  if(analyzed<total)h+='<div style="margin-top:8px;font-size:.8em;color:#8a7e6e">個別タグ付け中... '+analyzed+'/'+total+'枚</div>';
+  else if(total>1)h+='<div style="margin-top:8px;font-size:.8em;color:#8a7e6e">全'+total+'枚の個別タグ付け完了</div>';
+  document.getElementById('ai-results').innerHTML=h;
+}
+
+async function analyzeAllInBackground(){
+  var BATCH=5;
+  for(var i=0;i<selectedFiles.length;i+=BATCH){
+    var batch=selectedFiles.slice(i,Math.min(i+BATCH,selectedFiles.length));
+    var batchStart=i;
+
+    var parts=[{text:'以下の写真それぞれを個別に分析してください。JSON形式で回答してください。\n\n各写真について:\n- tags: 写真の内容を表すタグの配列（日本語、3〜5個）\n- location: 撮影場所の推定（わかる場合、空文字でOK）\n\nJSON形式（photosは写真の順番通り）:\n{"photos":[{"tags":["タグ1","タグ2"],"location":"場所"}]}'}];
+
+    for(var j=0;j<batch.length;j++){
+      var inlineData=await fileToInlineData(batch[j]);
+      if(inlineData)parts.push(inlineData);
+    }
+
+    try{
+      var json=await callGemini(parts,2048);
+      var photos=json.photos||[];
+      for(var j=0;j<batch.length;j++){
+        var fallback=fileAnalyses[batchStart+j]||{tags:aiAnalysis.tags,location:aiAnalysis.location};
+        if(photos[j]){
+          fileAnalyses[batchStart+j]={tags:photos[j].tags||fallback.tags,location:photos[j].location||fallback.location};
+        }else{
+          fileAnalyses[batchStart+j]=fallback;
+        }
+      }
+    }catch(e){
+      console.warn('Background batch analysis failed:',e);
+      for(var j=0;j<batch.length;j++){
+        if(!fileAnalyses[batchStart+j])fileAnalyses[batchStart+j]={tags:aiAnalysis.tags,location:aiAnalysis.location};
+      }
+    }
+
+    renderAiResults();
+    if(i+BATCH<selectedFiles.length)await new Promise(function(r){setTimeout(r,6000)});
+  }
 }
 
 function fileToBase64(file){
@@ -538,31 +792,56 @@ function fileToBase64(file){
 // ==================== Folder Options ====================
 function showFolderOptions(){
   var card=document.getElementById('folder-card');card.style.display='';
-  var html='';
-  if(aiAnalysis&&aiAnalysis.folderSuggestion){
-    html+='<div class="folder-option selected" data-mode="suggest" onclick="selectFolderMode(\'suggest\')"><span class="icon">✨</span><span class="name">'+escapeHtml(aiAnalysis.folderSuggestion)+'</span><span class="check">✓</span></div>';
-    chosenFolderMode='suggest';
-  }
-  html+='<div class="folder-option'+(chosenFolderMode==='custom'?' selected':'')+'" data-mode="custom" onclick="selectFolderMode(\'custom\')"><span class="icon">✏️</span><span class="name">自分で入力</span><span class="check">✓</span></div>';
-  html+='<div class="folder-option'+(chosenFolderMode==='existing'?' selected':'')+'" data-mode="existing" onclick="selectFolderMode(\'existing\')"><span class="icon">📂</span><span class="name">既存フォルダに追加</span><span class="check">✓</span></div>';
-  document.getElementById('folder-options').innerHTML=html;
-  document.getElementById('custom-folder-area').style.display='none';
-  document.getElementById('existing-folder-area').style.display='none';
+  folderOverride=false;
+  document.getElementById('folder-override-area').style.display='none';
+  renderFolderGroups();
   updateTransferBtn();
 }
 
-function selectFolderMode(mode){
-  chosenFolderMode=mode;chosenFolderId='';
-  document.querySelectorAll('.folder-option').forEach(function(x){x.classList.toggle('selected',x.getAttribute('data-mode')===mode)});
-  document.getElementById('custom-folder-area').style.display=mode==='custom'?'':'none';
-  document.getElementById('existing-folder-area').style.display=mode==='existing'?'':'none';
-  if(mode==='custom')document.getElementById('custom-folder-name').focus();
+function renderFolderGroups(){
+  var c=document.getElementById('folder-groups');
+  var h='';
+  for(var g=0;g<photoGroups.length;g++){
+    var grp=photoGroups[g];
+    h+='<div class="group-folder-name" style="margin-bottom:8px">';
+    h+='<span style="font-size:1.1em">📁</span>';
+    h+='<input type="text" class="group-folder-input" data-group="'+g+'" value="'+escapeAttr(grp.folderName)+'" placeholder="フォルダ名" oninput="updateGroupFolder('+g+',this.value);updateTransferBtn()">';
+    h+='<span style="font-size:.75em;color:#8a7e6e;white-space:nowrap">'+grp.photoIndices.length+'枚</span>';
+    h+='</div>';
+  }
+  c.innerHTML=h;
+}
+
+function updateGroupFolder(idx,name){photoGroups[idx].folderName=name;}
+
+function toggleFolderOverride(){
+  folderOverride=!folderOverride;
+  var area=document.getElementById('folder-override-area');
+  area.style.display=folderOverride?'':'none';
+  document.getElementById('folder-override-btn').textContent=folderOverride?'AIの提案に戻す':'すべて1つのフォルダにまとめる';
+  if(folderOverride){
+    var h='<div class="folder-option selected" data-mode="custom" onclick="selectOverrideMode(\'custom\')"><span class="icon">✏️</span><span class="name">自分で入力</span><span class="check">✓</span></div>';
+    h+='<div class="folder-option" data-mode="existing" onclick="selectOverrideMode(\'existing\')"><span class="icon">📂</span><span class="name">既存フォルダに追加</span><span class="check">✓</span></div>';
+    document.getElementById('folder-override-options').innerHTML=h;
+    overrideMode='custom';
+    document.getElementById('override-custom-area').style.display='';
+    document.getElementById('override-existing-area').style.display='none';
+  }
+  updateTransferBtn();
+}
+
+function selectOverrideMode(mode){
+  overrideMode=mode;chosenFolderId='';
+  document.querySelectorAll('#folder-override-options .folder-option').forEach(function(x){x.classList.toggle('selected',x.getAttribute('data-mode')===mode)});
+  document.getElementById('override-custom-area').style.display=mode==='custom'?'':'none';
+  document.getElementById('override-existing-area').style.display=mode==='existing'?'':'none';
+  if(mode==='custom'){var inp=document.getElementById('override-custom-name');inp.focus();}
   if(mode==='existing')loadExistingFolders();
   updateTransferBtn();
 }
 
 async function loadExistingFolders(){
-  var c=document.getElementById('existing-folders');c.innerHTML='<div class="loading-state" style="padding:16px"><div class="spinner"></div></div>';
+  var c=document.getElementById('override-existing-folders');c.innerHTML='<div class="loading-state" style="padding:16px"><div class="spinner"></div></div>';
   try{
     var q="'"+orgConfig.folderId+"' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false";
     var d=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&driveId='+orgConfig.driveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true&fields=files(id,name)&orderBy=name_natural desc&pageSize=50');
@@ -573,7 +852,7 @@ async function loadExistingFolders(){
   }catch(e){c.innerHTML='<p style="color:#c0392b">エラー</p>';}
 }
 function selectExistingFolder(el){
-  document.querySelectorAll('#existing-folders .folder-item-setup').forEach(function(x){x.classList.remove('selected')});
+  document.querySelectorAll('#override-existing-folders .folder-item-setup').forEach(function(x){x.classList.remove('selected')});
   el.classList.add('selected');chosenFolderId=el.getAttribute('data-id');updateTransferBtn();
 }
 
@@ -581,15 +860,56 @@ function updateTransferBtn(){
   var btn=document.getElementById('transfer-btn');
   if(!selectedFiles.length){btn.disabled=true;btn.textContent='写真を選択してください';return;}
   if(!aiAnalysis){btn.disabled=true;btn.textContent='AI分析中...';return;}
+
   var ready=false;
-  if(chosenFolderMode==='suggest'&&aiAnalysis.folderSuggestion)ready=true;
-  if(chosenFolderMode==='custom'&&(document.getElementById('custom-folder-name').value||'').trim())ready=true;
-  if(chosenFolderMode==='existing'&&chosenFolderId)ready=true;
+  if(folderOverride){
+    if(overrideMode==='custom'&&(document.getElementById('override-custom-name').value||'').trim())ready=true;
+    if(overrideMode==='existing'&&chosenFolderId)ready=true;
+  }else{
+    // Check all groups have folder names
+    ready=photoGroups.length>0&&photoGroups.every(function(g){return g.folderName.trim()});
+  }
   btn.disabled=!ready;
-  btn.textContent=ready?selectedFiles.length+'枚をアップロード':'フォルダを選択してください';
+  btn.textContent=ready?selectedFiles.length+'枚をアップロード':'フォルダ名を入力してください';
 }
 
 // ==================== Upload ====================
+function buildFileDesc(fileIdx){
+  var fa=fileAnalyses[fileIdx];
+  var desc='';
+  if(fa){
+    var dp=[];
+    if(fa.tags&&fa.tags.length)dp.push(fa.tags.map(function(t){return '#'+t}).join(' '));
+    if(fa.location)dp.push('📍 '+fa.location);
+    desc=dp.join('\n');
+  }else if(aiAnalysis&&aiAnalysis.tags.length){
+    var dp=[];
+    dp.push(aiAnalysis.tags.map(function(t){return '#'+t}).join(' '));
+    if(aiAnalysis.location)dp.push('📍 '+aiAnalysis.location);
+    desc=dp.join('\n');
+  }
+  return desc;
+}
+
+async function createDriveFolder(name){
+  var fr=await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true',{
+    method:'POST',headers:{'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},
+    body:JSON.stringify({name:name,mimeType:'application/vnd.google-apps.folder',parents:[orgConfig.folderId]})
+  });
+  if(!fr.ok)throw new Error('フォルダ作成失敗: '+name);
+  return(await fr.json()).id;
+}
+
+async function uploadFile(file,folderId,desc){
+  var meta=JSON.stringify({name:file.name,parents:[folderId],description:desc});
+  var form=new FormData();
+  form.append('metadata',new Blob([meta],{type:'application/json'}));
+  form.append('file',file);
+  var r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',
+    {method:'POST',headers:{'Authorization':'Bearer '+accessToken},body:form});
+  if(!r.ok)throw new Error('Upload failed');
+}
+
 async function startUpload(){
   if(!selectedFiles.length||!orgConfig)return;
 
@@ -597,45 +917,38 @@ async function startUpload(){
   document.getElementById('modal-progress').style.display='block';
   document.getElementById('modal-done').style.display='none';
 
-  var targetFolderId='';
-  var folderName='';
-
   try{
-    if(chosenFolderMode==='existing'){
-      targetFolderId=chosenFolderId;
+    // Build upload plan: [{fileIdx, folderId}]
+    var plan=[];
+    if(folderOverride){
+      // Single folder for all
+      var fid='';
+      if(overrideMode==='existing'){fid=chosenFolderId;}
+      else{fid=await createDriveFolder(document.getElementById('override-custom-name').value.trim());}
+      for(var i=0;i<selectedFiles.length;i++)plan.push({fileIdx:i,folderId:fid});
+      document.getElementById('modal-title').textContent='アップロード中...';
     }else{
-      folderName=chosenFolderMode==='suggest'?aiAnalysis.folderSuggestion:document.getElementById('custom-folder-name').value.trim();
-      document.getElementById('modal-title').textContent=folderName;
-      var fr=await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true',{
-        method:'POST',headers:{'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},
-        body:JSON.stringify({name:folderName,mimeType:'application/vnd.google-apps.folder',parents:[orgConfig.folderId]})
-      });
-      if(!fr.ok)throw new Error('フォルダ作成失敗');
-      var folder=await fr.json();targetFolderId=folder.id;
-    }
-
-    // Build tag description
-    var desc='';
-    if(aiAnalysis){
-      var parts=[];
-      if(aiAnalysis.tags.length)parts.push(aiAnalysis.tags.map(function(t){return '#'+t}).join(' '));
-      if(aiAnalysis.location)parts.push('📍 '+aiAnalysis.location);
-      desc=parts.join('\n');
+      // Per-group folders
+      document.getElementById('modal-title').textContent=photoGroups.length>1?photoGroups.length+'フォルダにアップロード中...':'アップロード中...';
+      var folderIds={};
+      for(var g=0;g<photoGroups.length;g++){
+        var grp=photoGroups[g];
+        var fid=await createDriveFolder(grp.folderName.trim());
+        for(var j=0;j<grp.photoIndices.length;j++){
+          plan.push({fileIdx:grp.photoIndices[j],folderId:fid});
+        }
+      }
     }
 
     var transferred=0,errors=[];
-    for(var i=0;i<selectedFiles.length;i++){
-      var file=selectedFiles[i];
-      var pct=Math.round(((i+1)/selectedFiles.length)*100);
-      updateProgress(pct,file.name,(i+1)+' / '+selectedFiles.length);
+    for(var i=0;i<plan.length;i++){
+      var p=plan[i];
+      var file=selectedFiles[p.fileIdx];
+      var pct=Math.round(((i+1)/plan.length)*100);
+      updateProgress(pct,file.name,(i+1)+' / '+plan.length);
       try{
-        var meta=JSON.stringify({name:file.name,parents:[targetFolderId],description:desc});
-        var form=new FormData();
-        form.append('metadata',new Blob([meta],{type:'application/json'}));
-        form.append('file',file);
-        var ur=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',
-          {method:'POST',headers:{'Authorization':'Bearer '+accessToken},body:form});
-        if(ur.ok)transferred++;else errors.push(file.name);
+        await uploadFile(file,p.folderId,buildFileDesc(p.fileIdx));
+        transferred++;
       }catch(e){errors.push(file.name);}
     }
 
@@ -644,7 +957,9 @@ async function startUpload(){
     var hasErr=errors.length>0;
     document.getElementById('done-icon').textContent=hasErr?'⚠️':'✅';
     document.getElementById('done-msg').textContent=transferred+'枚をアップロードしました';
-    document.getElementById('done-detail').textContent=hasErr?errors.length+'件のエラー':'全ての写真をアップロード完了';
+    var detail=hasErr?errors.length+'件のエラー':'全ての写真をアップロード完了';
+    if(!folderOverride&&photoGroups.length>1)detail+='（'+photoGroups.length+'フォルダ）';
+    document.getElementById('done-detail').textContent=detail;
   }catch(e){
     document.getElementById('modal-progress').style.display='none';
     document.getElementById('modal-done').style.display='block';
