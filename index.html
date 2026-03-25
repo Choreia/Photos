@@ -764,7 +764,7 @@ async function analyzePhotos(){
       +'重要: 写真が複数の異なるイベント・場所・日にちに属する場合は、グループに分けてください。\n'
       +'同じイベントの写真は1つのグループにまとめてください。\n\n'
       +'各グループについて:\n'
-      +'- folderName: フォルダ名の提案（YYYYMM + 内容の形式、例: "202603 静岡大学視察"）\n'
+      +'- folderName: フォルダ名の提案（YYYYMM + 内容の形式、例: "202603 静岡大学視察"）。日付が不明な場合は本日 '+getTodayYM()+' を使用\n'
       +'- photoNumbers: このグループに属する写真番号の配列（1始まり）\n'
       +'- tags: グループ全体を表すタグの配列（日本語、5〜10個）\n'
       +'- location: 撮影場所の推定（わかる場合）\n'
@@ -793,8 +793,11 @@ async function analyzePhotos(){
         if(idx>=0&&idx<selectedFiles.length&&!assigned.has(idx)){indices.push(idx);assigned.add(idx);}
       }
       if(!indices.length)continue;
+      var fn=grp.folderName||grp.folderSuggestion||'';
+      // Ensure folder name starts with YYYYMM
+      if(fn&&!/^\d{6}/.test(fn))fn=getTodayYM()+' '+fn;
       photoGroups.push({
-        folderName:grp.folderName||grp.folderSuggestion||'',
+        folderName:fn,
         photoIndices:indices,
         tags:grp.tags||[],
         location:grp.location||'',
@@ -1569,6 +1572,7 @@ async function apiFetch(url,opts){
   var res=await fetch(url,opts);if(!res.ok){var e='';try{e=JSON.stringify(await res.json())}catch(x){}throw new Error('API '+res.status+': '+e);}return res.json();
 }
 function isBlockedDomain(d){return BLOCKED_DOMAINS.indexOf(d.toLowerCase())!==-1}
+function getTodayYM(){var d=new Date();return d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')}
 function escapeHtml(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
 function escapeAttr(s){return(s||'').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function showToast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show')},2500)}
