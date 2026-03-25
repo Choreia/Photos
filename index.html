@@ -750,16 +750,35 @@ var photoGroups=[]; // [{folderName, photoIndices:[], tags:[], location:'', priv
 var folderOverride=false; // true = ignore groups, use single folder
 var overrideMode=''; // 'custom','existing'
 
+var GEMINI_FALLBACK_MODELS=['gemini-2.5-flash','gemini-2.0-flash','gemini-1.5-flash'];
+
 async function callGemini(parts,maxTokens){
   if(!GEMINI_API_KEY){throw new Error('Gemini APIキーが未設定です。管理者設定から設定してください');}
   var body={contents:[{parts:parts}],generationConfig:{temperature:0.2,maxOutputTokens:maxTokens||2048,responseMimeType:'application/json'}};
-  var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODEL+':generateContent?key='+GEMINI_API_KEY,{
-    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
-  });
-  if(!res.ok){var err='';try{err=JSON.stringify(await res.json())}catch(x){}throw new Error('Gemini API '+res.status+': '+err);}
-  var data=await res.json();
-  var text=data.candidates[0].content.parts[0].text;
-  return JSON.parse(text.match(/[\[{][\s\S]*[\]}]/)[0]);
+  var lastErr='';
+  for(var m=0;m<GEMINI_FALLBACK_MODELS.length;m++){
+    var model=GEMINI_FALLBACK_MODELS[m];
+    for(var retry=0;retry<2;retry++){
+      try{
+        var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+GEMINI_API_KEY,{
+          method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
+        });
+        if(res.status===503||res.status===429){
+          lastErr='Gemini API '+res.status+' ('+model+')';
+          await new Promise(function(r){setTimeout(r,3000)});
+          continue;
+        }
+        if(!res.ok){var err='';try{err=JSON.stringify(await res.json())}catch(x){}throw new Error('Gemini API '+res.status+': '+err);}
+        var data=await res.json();
+        var text=data.candidates[0].content.parts[0].text;
+        return JSON.parse(text.match(/[\[{][\s\S]*[\]}]/)[0]);
+      }catch(e){
+        if(e.message.indexOf('503')>=0||e.message.indexOf('429')>=0){lastErr=e.message;continue;}
+        throw e;
+      }
+    }
+  }
+  throw new Error(lastErr||'全モデルが利用不可です。しばらくしてから再試行してください');
 }
 
 function getFileThumb(file){
