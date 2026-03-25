@@ -1983,7 +1983,6 @@ function initCropHandlers(){
 function editorSave(){
   var canvas=document.getElementById('picker-canvas');
   var outCanvas=canvas;
-  // If crop area selected, crop it
   if(cropStart&&cropEnd){
     var x1=Math.min(cropStart.x,cropEnd.x),y1=Math.min(cropStart.y,cropEnd.y);
     var w=Math.abs(cropEnd.x-cropStart.x),h=Math.abs(cropEnd.y-cropStart.y);
@@ -1996,12 +1995,28 @@ function editorSave(){
   outCanvas.toBlob(function(blob){
     if(!blob)return;
     var url=URL.createObjectURL(blob);
-    snsPostPhotos[editorPhotoIdx].thumbnailLink=url;
-    snsPostPhotos[editorPhotoIdx]._editedBlob=blob;
+    var orig=snsPostPhotos[editorPhotoIdx];
+    // Save original reference if not already saved
+    if(!orig._originalThumb)orig._originalThumb=orig.thumbnailLink;
+    // Add edited version as new entry
+    var editedPhoto={
+      id:orig.id,
+      name:'✏️ '+orig.name.replace(/^✏️ /,''),
+      thumbnailLink:url,
+      description:orig.description,
+      _editedBlob:blob,
+      _originalIdx:editorPhotoIdx
+    };
+    var newIdx=snsPostPhotos.length;
+    snsPostPhotos.push(editedPhoto);
+    // Auto-select edited, deselect original
+    var d=snsPostData[pickerPostIdx];
+    d.selectedPhotoIds.delete(editorPhotoIdx);
+    d.selectedPhotoIds.add(newIdx);
     cropStart=null;cropEnd=null;
-    showPickerDetail(editorPhotoIdx);
+    showPickerDetail(newIdx);
     updateSnsPhotoPreview(pickerPostIdx);
-    showToast('写真を加工しました');
+    showToast('加工版を保存しました（元の写真も選択可能です）');
   },'image/jpeg',0.9);
 }
 
@@ -2179,13 +2194,20 @@ async function downloadSnsPhotos(idx){
   for(var i=0;i<ids.length;i++){
     var p=snsPostPhotos[ids[i]];
     try{
-      var resp=await fetch('https://www.googleapis.com/drive/v3/files/'+p.id+'?alt=media&supportsAllDrives=true',
-        {headers:{'Authorization':'Bearer '+accessToken}});
-      if(!resp.ok)continue;
-      var blob=await resp.blob();
+      var blob;
+      if(p._editedBlob){
+        // Use edited version
+        blob=p._editedBlob;
+      }else{
+        // Download original from Drive
+        var resp=await fetch('https://www.googleapis.com/drive/v3/files/'+p.id+'?alt=media&supportsAllDrives=true',
+          {headers:{'Authorization':'Bearer '+accessToken}});
+        if(!resp.ok)continue;
+        blob=await resp.blob();
+      }
       var a=document.createElement('a');
       a.href=URL.createObjectURL(blob);
-      a.download=p.name||'photo_'+(i+1)+'.jpg';
+      a.download=(p.name||'photo_'+(i+1))+'.jpg';
       document.body.appendChild(a);a.click();document.body.removeChild(a);
       URL.revokeObjectURL(a.href);
     }catch(e){}
