@@ -450,7 +450,7 @@ async function analyzePhotos(){
   try{
     // Analyze first 5 photos (or fewer)
     var filesToAnalyze=selectedFiles.slice(0,5);
-    var parts=[{text:'以下の写真を分析してください。JSON形式で回答してください。\n\n必要な情報:\n- tags: 写真の内容を表すタグの配列（日本語、5〜10個）。被写体、場所、シーン、季節、色などを含む\n- location: 撮影場所の推定（わかる場合）\n- folderSuggestion: これらの写真をまとめるフォルダ名の提案（YYYYMM + 内容の形式、例: "202603 静岡大学視察"）\n\nJSON形式:\n{"tags":["タグ1","タグ2"],"location":"場所","folderSuggestion":"フォルダ名"}'}];
+    var parts=[{text:'以下の写真を分析してください。JSON形式で回答してください。\n\n必要な情報:\n- tags: 写真の内容を表すタグの配列（日本語、5〜10個）。被写体、場所、シーン、季節、色などを含む\n- location: 撮影場所の推定（わかる場合）\n- folderSuggestion: これらの写真をまとめるフォルダ名の提案（YYYYMM + 内容の形式、例: "202603 静岡大学視察"）\n- privateWarning: 業務と無関係な私用写真（自撮り、食事、ペット、家族写真など）が含まれる場合はtrue、業務関連ならfalse\n- privateReason: privateWarningがtrueの場合、その理由（例: "自撮り写真が含まれています"）\n\nJSON形式:\n{"tags":["タグ1","タグ2"],"location":"場所","folderSuggestion":"フォルダ名","privateWarning":false,"privateReason":""}'}];
 
     for(var i=0;i<filesToAnalyze.length;i++){
       var base64=await fileToBase64(filesToAnalyze[i]);
@@ -467,7 +467,7 @@ async function analyzePhotos(){
     var text=data.candidates[0].content.parts[0].text;
     var json=JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
 
-    aiAnalysis={tags:json.tags||[],location:json.location||'',folderSuggestion:json.folderSuggestion||''};
+    aiAnalysis={tags:json.tags||[],location:json.location||'',folderSuggestion:json.folderSuggestion||'',privateWarning:json.privateWarning||false,privateReason:json.privateReason||''};
 
     // Show results
     document.getElementById('ai-loading').style.display='none';
@@ -476,6 +476,13 @@ async function analyzePhotos(){
     document.getElementById('ai-tags').innerHTML=tagsHtml;
     document.getElementById('ai-location').innerHTML=aiAnalysis.location?'📍 '+escapeHtml(aiAnalysis.location):'';
     document.getElementById('ai-folder-suggest').textContent=aiAnalysis.folderSuggestion;
+
+    // Private photo warning
+    if(aiAnalysis.privateWarning){
+      showToast('⚠️ '+aiAnalysis.privateReason);
+      var warnHtml='<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;margin-top:12px;font-size:.85em;color:#856404">⚠️ <strong>私用写真の可能性:</strong> '+escapeHtml(aiAnalysis.privateReason)+'</div>';
+      document.getElementById('ai-results').querySelector('.ai-section').insertAdjacentHTML('beforeend',warnHtml);
+    }
 
     // Show folder options
     showFolderOptions();
