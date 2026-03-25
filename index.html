@@ -168,6 +168,13 @@ input[type="file"]{display:none}
 .btn-sns.ig{background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)}
 .btn-sns.dl{background:#5a3e28}
 .sns-post-menu{display:flex;gap:6px;margin-top:8px;justify-content:center;animation:fadeIn .2s ease}
+.sns-schedule-row{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.85em}
+.sns-schedule-row input[type="datetime-local"]{padding:6px 10px;border:2px solid #ece6de;border-radius:8px;font-family:inherit;font-size:.9em}
+.sns-schedule-row input[type="datetime-local"]:focus{border-color:#a0522d;outline:none}
+.sns-draft-card{background:#fff;border:1px solid #ece6de;border-radius:12px;padding:14px;margin-bottom:10px}
+.sns-draft-card .draft-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:.8em;color:#8a7e6e}
+.sns-draft-card .draft-text{font-size:.85em;color:#2c2418;line-height:1.6;white-space:pre-wrap;max-height:80px;overflow:hidden}
+.sns-draft-card .draft-actions{display:flex;gap:6px;margin-top:10px}
 @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
 
 .photo-detail-map{position:relative;width:100%;height:160px;border-radius:10px;overflow:hidden;margin-top:4px;cursor:pointer}
@@ -326,6 +333,12 @@ input[type="file"]{display:none}
         <input type="email" class="admin-add-input" id="admin-add-email" placeholder="追加するメールアドレス" onkeydown="if(event.key==='Enter')addAdmin()">
         <button class="admin-add-btn" onclick="addAdmin()">追加</button>
       </div>
+      <h2 style="margin-top:20px">Gemini APIキー</h2>
+      <div class="admin-add-row" style="margin-top:8px">
+        <input type="password" class="admin-add-input" id="gemini-api-key-input" placeholder="Gemini APIキーを入力" onchange="saveGeminiKey()">
+        <button class="admin-add-btn" onclick="saveGeminiKey()">保存</button>
+      </div>
+      <p style="font-size:.7em;color:#8a7e6e;margin-top:4px">Google AI StudioでAPIキーを取得してください</p>
       <h2 style="margin-top:20px">SNSアカウント</h2>
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
         <div class="admin-add-row"><span style="width:24px;text-align:center">𝕏</span><input type="text" class="admin-add-input" id="sns-account-x" placeholder="@ユーザー名" onchange="saveSnsAccounts()"></div>
@@ -422,6 +435,7 @@ input[type="file"]{display:none}
         <div class="sns-modes">
           <button class="sns-mode active" id="sns-mode-suggest" onclick="setSnsMode('suggest')">📸 写真から提案</button>
           <button class="sns-mode" id="sns-mode-theme" onclick="setSnsMode('theme')">💡 テーマから作成</button>
+          <button class="sns-mode" id="sns-mode-drafts" onclick="setSnsMode('drafts')">📝 下書き</button>
         </div>
 
         <!-- Mode A: Folder → Suggest -->
@@ -436,6 +450,12 @@ input[type="file"]{display:none}
           <input type="text" class="sns-input" id="sns-theme-input" placeholder="投稿テーマ（例: 新入社員歓迎会の様子を紹介したい）" onkeydown="if(event.key==='Enter')generateFromTheme()">
           <button class="btn-primary" onclick="generateFromTheme()" style="margin-bottom:12px">AIに写真を選んでもらう</button>
           <div id="sns-theme-loading" style="display:none"><div class="loading-state" style="padding:16px"><div class="spinner"></div><div>写真を検索して投稿文を作成中...</div></div></div>
+        </div>
+
+        <!-- Drafts -->
+        <div id="sns-drafts-area" style="display:none">
+          <div id="sns-drafts-list"></div>
+          <div id="sns-drafts-loading" style="display:none"><div class="loading-state" style="padding:16px"><div class="spinner"></div></div></div>
         </div>
 
         <!-- Results -->
@@ -490,7 +510,7 @@ input[type="file"]{display:none}
 // ==================== Config ====================
 var CLIENT_ID='595564106580-hsrunbvfacmr23d2jopl462taqilip75.apps.googleusercontent.com';
 var SCOPES='https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets';
-var GEMINI_API_KEY='AIzaSyAQPTkqhr49TFC7hPDoBBWBFEStnG_kokA';
+var GEMINI_API_KEY=''; // Loaded from orgConfig
 var CONFIG_FILENAME='choreia-photos-config.json';
 var BLOCKED_DOMAINS=['gmail.com','googlemail.com','yahoo.co.jp','yahoo.com','hotmail.com','outlook.com','outlook.jp','icloud.com','me.com','mac.com','aol.com','protonmail.com','zoho.com','live.com','live.jp','msn.com','nifty.com','biglobe.ne.jp','ocn.ne.jp'];
 
@@ -642,6 +662,7 @@ function showMainView(){
   document.getElementById('admin-panel').style.display='none';
   document.getElementById('tab-sns').style.display=admin?'':'none';
   document.getElementById('search-empty').style.display='';
+  GEMINI_API_KEY=orgConfig.geminiApiKey||'';
   updateTransferBtn();
 }
 function isAdmin(){
@@ -658,7 +679,7 @@ function toggleAdminPanel(){
   var p=document.getElementById('admin-panel');
   var visible=p.style.display!=='none';
   p.style.display=visible?'none':'';
-  if(!visible){renderAdminList();loadSnsAccounts();}
+  if(!visible){renderAdminList();loadSnsAccounts();loadGeminiKey();}
 }
 function renderAdminList(){
   var admins=getAdmins();
@@ -730,7 +751,7 @@ var folderOverride=false; // true = ignore groups, use single folder
 var overrideMode=''; // 'custom','existing'
 
 async function callGemini(parts,maxTokens){
-  if(!GEMINI_API_KEY){throw new Error('Gemini APIキーが設定されていません');}
+  if(!GEMINI_API_KEY){throw new Error('Gemini APIキーが未設定です。管理者設定から設定してください');}
   var body={contents:[{parts:parts}],generationConfig:{temperature:0.2,maxOutputTokens:maxTokens||2048,responseMimeType:'application/json'}};
   var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODEL+':generateContent?key='+GEMINI_API_KEY,{
     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
@@ -1324,11 +1345,13 @@ var snsFolders=[];
 
 function setSnsMode(mode){
   snsMode=mode;
-  document.getElementById('sns-mode-suggest').classList.toggle('active',mode==='suggest');
-  document.getElementById('sns-mode-theme').classList.toggle('active',mode==='theme');
-  document.getElementById('sns-suggest-area').style.display=mode==='suggest'?'':'none';
-  document.getElementById('sns-theme-area').style.display=mode==='theme'?'':'none';
+  ['suggest','theme','drafts'].forEach(function(m){
+    document.getElementById('sns-mode-'+m).classList.toggle('active',mode===m);
+    var area=document.getElementById('sns-'+m+'-area');
+    if(area)area.style.display=mode===m?'':'none';
+  });
   document.getElementById('sns-results').innerHTML='';
+  if(mode==='drafts')loadDrafts();
 }
 
 async function loadSnsFolders(){
@@ -1477,6 +1500,7 @@ function renderSnsPosts(posts,photos){
     h+='<button class="btn-sns dl" onclick="downloadSnsPhotos('+i+')">📥</button>';
     h+='</div>';
     h+='</div>';
+    h+='<div class="sns-schedule-row"><span>📅 予約:</span><input type="datetime-local" id="sns-schedule-'+i+'"><button class="btn-text" onclick="saveDraft('+i+')">💾 下書き保存</button></div>';
     h+='</div>';
   }
   rc.innerHTML=h;
@@ -1497,6 +1521,19 @@ function toggleSnsPhoto(postIdx,photoIdx){
   });
 }
 
+function saveGeminiKey(){
+  var key=document.getElementById('gemini-api-key-input').value.trim();
+  if(!key){showToast('APIキーを入力してください');return;}
+  orgConfig.geminiApiKey=key;
+  GEMINI_API_KEY=key;
+  saveConfig();
+  showToast('APIキーを保存しました');
+}
+function loadGeminiKey(){
+  GEMINI_API_KEY=orgConfig.geminiApiKey||'';
+  var inp=document.getElementById('gemini-api-key-input');
+  if(inp)inp.value=GEMINI_API_KEY?'••••••••••':'';
+}
 function saveSnsAccounts(){
   orgConfig.snsAccounts={
     x:(document.getElementById('sns-account-x').value||'').trim(),
@@ -1510,6 +1547,119 @@ function loadSnsAccounts(){
   document.getElementById('sns-account-x').value=a.x||'';
   document.getElementById('sns-account-fb').value=a.fb||'';
   document.getElementById('sns-account-ig').value=a.ig||'';
+}
+
+// ==================== Drafts ====================
+var SNS_DRAFTS_FILENAME='choreia-photos-drafts.json';
+
+async function saveDraft(idx){
+  var d=snsPostData[idx];
+  var schedule=document.getElementById('sns-schedule-'+idx).value||'';
+  var draft={
+    text:getSnsText(idx),
+    title:d.title,
+    platform:d.platform,
+    photoIds:Array.from(d.selectedPhotoIds).map(function(i){return snsPostPhotos[i]?snsPostPhotos[i].id:null}).filter(Boolean),
+    scheduledAt:schedule,
+    savedAt:new Date().toISOString(),
+    savedBy:currentUser.name
+  };
+
+  try{
+    // Load existing drafts
+    var drafts=await loadDraftsData();
+    drafts.push(draft);
+    await saveDraftsData(drafts);
+    showToast('下書きを保存しました'+(schedule?' (予約: '+new Date(schedule).toLocaleString('ja-JP')+')':''));
+  }catch(e){showToast('保存エラー: '+e.message);}
+}
+
+async function loadDraftsData(){
+  try{
+    var q="name='"+SNS_DRAFTS_FILENAME+"' and trashed=false";
+    var base='&driveId='+orgConfig.driveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true';
+    var data=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+base+'&fields=files(id)');
+    if(data.files&&data.files.length){
+      var content=await apiFetch('https://www.googleapis.com/drive/v3/files/'+data.files[0].id+'?alt=media&supportsAllDrives=true');
+      return content.drafts||[];
+    }
+  }catch(e){}
+  return[];
+}
+
+async function saveDraftsData(drafts){
+  var q="name='"+SNS_DRAFTS_FILENAME+"' and trashed=false";
+  var base='&driveId='+orgConfig.driveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true';
+  var data=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+base+'&fields=files(id)');
+
+  var body=JSON.stringify({drafts:drafts},null,2);
+  if(data.files&&data.files.length){
+    await fetch('https://www.googleapis.com/upload/drive/v3/files/'+data.files[0].id+'?uploadType=media&supportsAllDrives=true',{
+      method:'PATCH',headers:{'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},body:body
+    });
+  }else{
+    var m=JSON.stringify({name:SNS_DRAFTS_FILENAME,parents:[orgConfig.folderId],mimeType:'application/json'});
+    var f=new FormData();
+    f.append('metadata',new Blob([m],{type:'application/json'}));
+    f.append('file',new Blob([body],{type:'application/json'}));
+    await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',{
+      method:'POST',headers:{'Authorization':'Bearer '+accessToken},body:f
+    });
+  }
+}
+
+async function loadDrafts(){
+  var c=document.getElementById('sns-drafts-list');
+  c.innerHTML='<div class="loading-state" style="padding:16px"><div class="spinner"></div></div>';
+  try{
+    var drafts=await loadDraftsData();
+    if(!drafts.length){c.innerHTML='<div class="browse-empty">下書きはありません</div>';return;}
+    // Show newest first
+    drafts.reverse();
+    var h='';
+    for(var i=0;i<drafts.length;i++){
+      var d=drafts[i];
+      var ridx=drafts.length-1-i; // original index
+      var schedStr=d.scheduledAt?'📅 '+new Date(d.scheduledAt).toLocaleString('ja-JP'):'未予約';
+      h+='<div class="sns-draft-card">';
+      h+='<div class="draft-header">'+platformIcon(d.platform)+'<span>'+escapeHtml(d.title||'無題')+'</span><span style="margin-left:auto">'+schedStr+'</span></div>';
+      h+='<div class="draft-text">'+escapeHtml(d.text||'')+'</div>';
+      h+='<div class="draft-actions">';
+      h+='<button class="btn-copy" onclick="useDraft('+ridx+')">📝 使用</button>';
+      h+='<button class="btn-copy" style="color:#c0392b" onclick="deleteDraft('+ridx+')">🗑 削除</button>';
+      h+='</div></div>';
+    }
+    c.innerHTML=h;
+  }catch(e){c.innerHTML='<div class="browse-empty" style="color:#c0392b">読み込みエラー</div>';}
+}
+
+async function deleteDraft(idx){
+  try{
+    var drafts=await loadDraftsData();
+    drafts.splice(idx,1);
+    await saveDraftsData(drafts);
+    showToast('下書きを削除しました');
+    loadDrafts();
+  }catch(e){showToast('エラー');}
+}
+
+function useDraft(idx){
+  // Switch to suggest mode and load draft as a post
+  loadDraftsData().then(function(drafts){
+    var d=drafts[idx];
+    if(!d)return;
+    setSnsMode('suggest');
+    snsPostPhotos=[];
+    snsPostData=[{text:d.text,selectedPhotoIds:new Set(),platform:d.platform,title:d.title}];
+    var rc=document.getElementById('sns-results');
+    // Render a single post card
+    var posts=[{text:d.text,title:d.title,platform:d.platform,photoNumbers:[]}];
+    renderSnsPosts(posts,[]);
+    if(d.scheduledAt){
+      setTimeout(function(){var el=document.getElementById('sns-schedule-0');if(el)el.value=d.scheduledAt;},100);
+    }
+    showToast('下書きを読み込みました');
+  });
 }
 
 var snsPhotoPickPostIdx=-1;
