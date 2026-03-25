@@ -978,7 +978,11 @@ async function apiFetch(url, opts) {
   opts.headers = opts.headers || {};
   opts.headers['Authorization'] = 'Bearer ' + accessToken;
   var res = await fetch(url, opts);
-  if (!res.ok) throw new Error('API ' + res.status);
+  if (!res.ok) {
+    var errBody = '';
+    try { errBody = JSON.stringify(await res.json()); } catch(e) {}
+    throw new Error('API ' + res.status + ': ' + errBody);
+  }
   return res.json();
 }
 
