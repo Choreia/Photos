@@ -458,7 +458,8 @@ input[type="file"]{display:none}
 <script>
 // ==================== Config ====================
 var CLIENT_ID='595564106580-hsrunbvfacmr23d2jopl462taqilip75.apps.googleusercontent.com';
-var SCOPES='https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/cloud-platform';
+var SCOPES='https://www.googleapis.com/auth/drive';
+var GEMINI_API_KEY=''; // Set your Gemini API key here
 var CONFIG_FILENAME='choreia-photos-config.json';
 var BLOCKED_DOMAINS=['gmail.com','googlemail.com','yahoo.co.jp','yahoo.com','hotmail.com','outlook.com','outlook.jp','icloud.com','me.com','mac.com','aol.com','protonmail.com','zoho.com','live.com','live.jp','msn.com','nifty.com','biglobe.ne.jp','ocn.ne.jp'];
 
@@ -698,11 +699,12 @@ var folderOverride=false; // true = ignore groups, use single folder
 var overrideMode=''; // 'custom','existing'
 
 async function callGemini(parts,maxTokens){
+  if(!GEMINI_API_KEY){throw new Error('Gemini APIキーが設定されていません');}
   var body={contents:[{parts:parts}],generationConfig:{temperature:0.2,maxOutputTokens:maxTokens||2048,responseMimeType:'application/json'}};
-  var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODEL+':generateContent',{
-    method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},body:JSON.stringify(body)
+  var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODEL+':generateContent?key='+GEMINI_API_KEY,{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
   });
-  if(!res.ok)throw new Error('Gemini API '+res.status);
+  if(!res.ok){var err='';try{err=JSON.stringify(await res.json())}catch(x){}throw new Error('Gemini API '+res.status+': '+err);}
   var data=await res.json();
   var text=data.candidates[0].content.parts[0].text;
   return JSON.parse(text.match(/[\[{][\s\S]*[\]}]/)[0]);
