@@ -381,24 +381,12 @@ input[type="file"]{display:none}
       </div>
       <p style="font-size:.7em;color:#8a7e6e;margin-top:4px">Google AI StudioでAPIキーを取得してください</p>
       <div class="migrate-section">
-        <h2>Google Photos 移行</h2>
-        <p style="font-size:.8em;color:#8a7e6e;margin:8px 0">Google フォトから写真を選んで共有ドライブに一括転送します。退職者の写真消失を防ぐために、定期的に移行してください。</p>
-        <div class="admin-add-row" style="margin-bottom:10px">
+        <h2>プロキシURL</h2>
+        <div class="admin-add-row" style="margin-top:8px">
           <input type="text" class="admin-add-input" id="proxy-url-input" placeholder="プロキシURL（Cloudflare Worker）" onchange="saveProxyUrl()">
           <button class="admin-add-btn" onclick="saveProxyUrl()">保存</button>
         </div>
-        <p style="font-size:.7em;color:#8a7e6e;margin:-6px 0 10px">Photos Picker API用のプロキシURL</p>
-        <button class="admin-add-btn" id="migrate-picker-btn" onclick="openPhotosPicker()" style="width:100%">📷 Google フォトから写真を選択</button>
-        <div id="migrate-picker-status" style="display:none;margin-top:10px"></div>
-        <div id="migrate-controls" style="display:none;margin-top:10px">
-          <div id="migrate-selected-info" style="font-size:.85em;color:#5a3e28;margin-bottom:8px"></div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-            <label style="font-size:.85em;color:#5a3e28;white-space:nowrap">フォルダ名:</label>
-            <input type="text" class="admin-add-input" id="migrate-folder-name" placeholder="YYYYMM 移行写真">
-          </div>
-          <button class="btn-primary" id="migrate-start-btn" onclick="startMigration()" style="width:100%">選択した写真を転送</button>
-        </div>
-        <div id="migrate-progress-area" style="display:none"></div>
+        <p style="font-size:.7em;color:#8a7e6e;margin-top:4px">Google Photos移行タブで使用するプロキシURL</p>
       </div>
 
       <h2 style="margin-top:20px">SNSアカウント</h2>
@@ -412,6 +400,7 @@ input[type="file"]{display:none}
     <!-- Tabs -->
     <div class="tabs">
       <button class="tab active" id="tab-upload" onclick="switchTab('upload')">📤 アップロード</button>
+      <button class="tab" id="tab-migrate" onclick="switchTab('migrate')" style="display:none">📷 移行</button>
       <button class="tab" id="tab-browse" onclick="switchTab('browse')">📁 フォルダ</button>
       <button class="tab" id="tab-search" onclick="switchTab('search')">🔍 検索</button>
       <button class="tab" id="tab-sns" onclick="switchTab('sns')" style="display:none">📱 SNS</button>
@@ -457,6 +446,28 @@ input[type="file"]{display:none}
             </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Migrate tab -->
+    <div id="panel-migrate" style="display:none">
+      <div class="card">
+        <h2>Google フォトから移行</h2>
+        <p style="color:#5a5044;font-size:.85em;margin-bottom:14px">Google フォトの写真を選んで共有ドライブに一括転送します。退職前の写真バックアップにご利用ください。</p>
+        <div id="migrate-no-proxy" style="display:none;padding:12px;background:#fdf5f0;border-radius:10px;margin-bottom:14px">
+          <p style="color:#a0522d;font-size:.85em">この機能を使うには管理者がプロキシURLを設定する必要があります。</p>
+        </div>
+        <button class="btn-primary" id="migrate-picker-btn" onclick="openPhotosPicker()" style="width:100%">📷 Google フォトから写真を選択</button>
+        <div id="migrate-picker-status" style="display:none;margin-top:12px"></div>
+        <div id="migrate-controls" style="display:none;margin-top:12px">
+          <div id="migrate-selected-info" style="font-size:.85em;color:#5a3e28;margin-bottom:8px"></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <label style="font-size:.85em;color:#5a3e28;white-space:nowrap">フォルダ名:</label>
+            <input type="text" class="folder-input" id="migrate-folder-name" placeholder="YYYYMM 移行写真">
+          </div>
+          <button class="btn-primary" id="migrate-start-btn" onclick="startMigration()" style="width:100%">選択した写真を転送</button>
+        </div>
+        <div id="migrate-progress-area" style="display:none;margin-top:12px"></div>
       </div>
     </div>
 
@@ -675,7 +686,7 @@ function showView(name){
 }
 function switchTab(tab){
   currentTab=tab;
-  ['upload','browse','search','sns'].forEach(function(t){
+  ['upload','migrate','browse','search','sns'].forEach(function(t){
     var tabEl=document.getElementById('tab-'+t);
     var panelEl=document.getElementById('panel-'+t);
     if(tabEl)tabEl.classList.toggle('active',tab===t);
@@ -684,6 +695,12 @@ function switchTab(tab){
   document.getElementById('footer-action').style.display=tab==='upload'?'':'none';
   if(tab==='search'){document.getElementById('search-query').focus();loadSearchSuggestions();}
   if(tab==='browse')loadBrowseFolder(orgConfig.folderId,orgConfig.folderName,true);
+  if(tab==='migrate'){
+    var noProxy=document.getElementById('migrate-no-proxy');
+    var btn=document.getElementById('migrate-picker-btn');
+    if(PROXY_URL){noProxy.style.display='none';btn.disabled=false;}
+    else{noProxy.style.display='';btn.disabled=true;}
+  }
   if(tab==='sns')loadSnsFolders();
   updateBackBtn();
 }
@@ -760,6 +777,7 @@ function showMainView(){
   document.getElementById('search-empty').style.display='';
   GEMINI_API_KEY=orgConfig.geminiApiKey||'';
   PROXY_URL=orgConfig.proxyUrl||'';
+  document.getElementById('tab-migrate').style.display=PROXY_URL?'':'none';
   updateTransferBtn();
 }
 function isAdmin(){
@@ -1239,12 +1257,33 @@ async function startUpload(){
       }
     }
 
-    var transferred=0,errors=[];
+    // Check for duplicates in target folders
+    var folderExisting={};
+    var uniqueFolderIds=[];
+    for(var i=0;i<plan.length;i++){if(uniqueFolderIds.indexOf(plan[i].folderId)===-1)uniqueFolderIds.push(plan[i].folderId);}
+    for(var f=0;f<uniqueFolderIds.length;f++){
+      var fid=uniqueFolderIds[f];
+      try{
+        var eq="'"+fid+"' in parents and trashed=false";
+        var ed=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(eq)+'&driveId='+orgConfig.driveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true&fields=files(name)&pageSize=1000');
+        var names=new Set();(ed.files||[]).forEach(function(f){names.add(f.name)});
+        folderExisting[fid]=names;
+      }catch(x){folderExisting[fid]=new Set();}
+    }
+
+    var transferred=0,skipped=0,errors=[];
     for(var i=0;i<plan.length;i++){
       var p=plan[i];
       var file=selectedFiles[p.fileIdx];
       var pct=Math.round(((i+1)/plan.length)*100);
       updateProgress(pct,file.name,(i+1)+' / '+plan.length);
+
+      // Skip duplicates
+      if(folderExisting[p.folderId]&&folderExisting[p.folderId].has(file.name)){
+        skipped++;
+        continue;
+      }
+
       try{
         await uploadFile(file,p.folderId,buildFileDesc(p.fileIdx));
         transferred++;
@@ -1255,7 +1294,9 @@ async function startUpload(){
     document.getElementById('modal-done').style.display='block';
     var hasErr=errors.length>0;
     document.getElementById('done-icon').textContent=hasErr?'⚠️':'✅';
-    document.getElementById('done-msg').textContent=transferred+'枚をアップロードしました';
+    var msg=transferred+'枚をアップロードしました';
+    if(skipped)msg+='（'+skipped+'枚は既存のためスキップ）';
+    document.getElementById('done-msg').textContent=msg;
     var detail=hasErr?errors.length+'件のエラー':'全ての写真をアップロード完了';
     if(!folderOverride&&photoGroups.length>1)detail+='（'+photoGroups.length+'フォルダ）';
     document.getElementById('done-detail').textContent=detail;
@@ -2550,7 +2591,8 @@ async function openPhotosPicker(){
     migrateSessionId=session.id;
     var pickerUri=session.pickerUri;
 
-    // 2. Open picker in new window
+    // 2. Open picker in new window (autoclose after selection)
+    if(pickerUri.indexOf('/autoclose')===-1)pickerUri+=(pickerUri.indexOf('?')>=0?'&':'/')+'autoclose';
     var pickerWin=window.open(pickerUri,'_blank','width=800,height=600');
     status.innerHTML='<div class="migrate-progress">'
       +'<div style="text-align:center">📷 Google フォトで写真を選択してください</div>'
@@ -2573,18 +2615,18 @@ async function pollPickerSession(){
     // Poll session until done (or already done)
     var maxPolls=30;
     for(var p=0;p<maxPolls;p++){
-      var session=await pickerApi('sessions/'+migrateSessionId,{});
+      var session=await pickerApi('sessions/'+migrateSessionId,{method:'GET'});
       if(session.mediaItemsSet){break;}
       if(p<maxPolls-1)await new Promise(function(r){setTimeout(r,2000)});
     }
 
-    // Fetch selected media items
+    // Fetch selected media items (endpoint: GET /v1/mediaItems?sessionId=xxx)
     migrateMediaItems=[];
     var nextToken='';
     do{
-      var path='sessions/'+migrateSessionId+'/mediaItems';
-      if(nextToken)path+='?pageToken='+encodeURIComponent(nextToken);
-      var data=await pickerApi(path,{});
+      var path='mediaItems?sessionId='+encodeURIComponent(migrateSessionId);
+      if(nextToken)path+='&pageToken='+encodeURIComponent(nextToken);
+      var data=await pickerApi(path,{method:'GET'});
       migrateMediaItems=migrateMediaItems.concat(data.mediaItems||[]);
       nextToken=data.nextPageToken||'';
     }while(nextToken);
