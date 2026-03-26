@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Photos">
 <meta name="theme-color" content="#a0522d">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; connect-src https://www.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://generativelanguage.googleapis.com https://lh3.googleusercontent.com https://sheets.googleapis.com https://*.workers.dev; frame-src https://accounts.google.com https://www.openstreetmap.org; img-src * data: blob:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; connect-src https://www.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://generativelanguage.googleapis.com https://lh3.googleusercontent.com https://sheets.googleapis.com https://*.workers.dev; frame-src https://accounts.google.com https://www.openstreetmap.org; img-src * data: blob:;">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;background:#faf8f5;color:#2c2418;line-height:1.6;min-height:100vh;-webkit-tap-highlight-color:transparent}
@@ -306,7 +306,7 @@ input[type="file"]{display:none}
 <div class="container">
   <div class="header">
     <button class="btn-back" id="btn-back" onclick="goBack()">←</button>
-    <h1><span>Choreia</span> Photos</h1>
+    <h1><span>Choreia</span> Photos <button onclick="toggleGuide()" style="background:none;border:1px solid #d4cdc2;border-radius:50%;width:24px;height:24px;font-size:.7em;cursor:pointer;color:#8a7e6e;vertical-align:middle">?</button></h1>
     <div class="auth-area">
       <div id="auth-out">
         <button class="btn-google" onclick="handleSignIn()">
@@ -473,6 +473,22 @@ input[type="file"]{display:none}
         </div>
         <div id="migrate-progress-area" style="display:none;margin-top:12px"></div>
       </div>
+      <div class="card" style="margin-top:12px">
+        <h2>Google Takeout ZIPから移行</h2>
+        <p style="color:#5a5044;font-size:.85em;margin-bottom:14px">Google TakeoutでエクスポートしたZIPファイルから写真を一括転送します。大量の写真の移行に最適です。</p>
+        <input type="file" id="zip-input" accept=".zip" style="display:none" onchange="handleZipFile(this.files[0])">
+        <button class="btn-primary" onclick="document.getElementById('zip-input').click()" style="width:100%">📦 ZIPファイルを選択</button>
+        <div id="zip-status" style="display:none;margin-top:12px"></div>
+        <div id="zip-controls" style="display:none;margin-top:12px">
+          <div id="zip-file-count" style="font-size:.85em;color:#5a3e28;margin-bottom:8px"></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <label style="font-size:.85em;color:#5a3e28;white-space:nowrap">フォルダ名:</label>
+            <input type="text" class="folder-input" id="zip-folder-name" placeholder="YYYYMM Takeout移行">
+          </div>
+          <button class="btn-primary" id="zip-start-btn" onclick="startZipUpload()" style="width:100%">転送開始</button>
+        </div>
+        <div id="zip-progress-area" style="display:none;margin-top:12px"></div>
+      </div>
     </div>
 
     <!-- Browse tab -->
@@ -604,9 +620,67 @@ input[type="file"]{display:none}
     </div>
   </div>
 </div>
+<div class="modal-overlay" id="guide-overlay" onclick="if(event.target===this)closeGuide()">
+  <div class="modal-sheet" style="max-height:80vh;overflow-y:auto">
+    <div class="modal-handle" onclick="closeGuide()"></div>
+    <div style="padding:4px 0 20px">
+      <h2 style="font-size:1.1em;margin-bottom:16px;text-align:center">使い方ガイド</h2>
+
+      <div style="margin-bottom:16px">
+        <h3 style="font-size:.9em;color:#a0522d;margin-bottom:6px">このアプリについて</h3>
+        <p style="font-size:.85em;color:#5a5044;line-height:1.6">Google フォトの「退職者の写真が消える問題」を解決するアプリです。写真をGoogle Drive（共有ドライブ）に保存し、AIが自動でタグ付け・分類します。</p>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <h3 style="font-size:.9em;color:#a0522d;margin-bottom:6px">基本の使い方</h3>
+        <ol style="font-size:.85em;color:#5a5044;line-height:1.8;padding-left:20px">
+          <li><strong>ログイン</strong> — 組織のGoogleアカウントでログイン</li>
+          <li><strong>写真を選択</strong> — カメラロールから写真を選ぶ</li>
+          <li><strong>AI分析</strong> — 自動でタグ付け・フォルダ名を提案</li>
+          <li><strong>アップロード</strong> — 共有ドライブに転送</li>
+        </ol>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <h3 style="font-size:.9em;color:#a0522d;margin-bottom:6px">過去の写真を移行するには</h3>
+        <p style="font-size:.85em;color:#5a5044;line-height:1.6"><strong>📷 移行タブ</strong>から2つの方法で移行できます：</p>
+        <ul style="font-size:.85em;color:#5a5044;line-height:1.8;padding-left:20px">
+          <li><strong>Google フォトから選択</strong> — 写真を直接選んで転送</li>
+          <li><strong>Google Takeout ZIP</strong> — 大量の写真を一括移行（おすすめ）</li>
+        </ul>
+        <div style="background:#fdf5f0;border-radius:8px;padding:10px;margin-top:8px;font-size:.8em;color:#5a3e28">
+          <strong>Takeoutの使い方:</strong> <a href="https://takeout.google.com" target="_blank" style="color:#a0522d">takeout.google.com</a> → 「Google フォト」を選択 → エクスポート → ZIPをダウンロード → このアプリでアップロード
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <h3 style="font-size:.9em;color:#a0522d;margin-bottom:6px">便利な機能</h3>
+        <ul style="font-size:.85em;color:#5a5044;line-height:1.8;padding-left:20px">
+          <li><strong>📁 フォルダ</strong> — アップロード済み写真を閲覧</li>
+          <li><strong>🔍 検索</strong> — AIタグで写真を横断検索</li>
+          <li>撮影日・カメラ情報・位置情報も自動保存</li>
+          <li>途中で止まっても同じフォルダ名で再開可能</li>
+        </ul>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <h3 style="font-size:.9em;color:#a0522d;margin-bottom:6px">うまく動かないとき</h3>
+        <ul style="font-size:.85em;color:#5a5044;line-height:1.8;padding-left:20px">
+          <li>ページを再読み込み（PCは <strong>Ctrl+Shift+R</strong>、スマホはタブを閉じて再度開く）</li>
+          <li>ログアウト → 再ログインで権限をリセット</li>
+          <li>不具合は管理者までご連絡ください</li>
+        </ul>
+        <p style="font-size:.75em;color:#8a7e6e;margin-top:8px">このアプリはアジャイル開発で継続的に改善しています。フィードバックを元に素早く修正しますので、お気づきの点はお気軽にどうぞ。</p>
+      </div>
+
+      <button class="btn-secondary" onclick="closeGuide()" style="width:100%">閉じる</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" async defer></script>
 <script>
 // ==================== Config ====================
 var CLIENT_ID='595564106580-hsrunbvfacmr23d2jopl462taqilip75.apps.googleusercontent.com';
@@ -783,6 +857,14 @@ function showMainView(){
   PROXY_URL=orgConfig.proxyUrl||'';
   document.getElementById('tab-migrate').style.display=PROXY_URL?'':'none';
   updateTransferBtn();
+  // Restore picker session after mobile redirect
+  var savedSession=sessionStorage.getItem('choreia_picker_session');
+  if(savedSession&&PROXY_URL){
+    sessionStorage.removeItem('choreia_picker_session');
+    migrateSessionId=savedSession;
+    switchTab('migrate');
+    pollPickerSession();
+  }
 }
 function isAdmin(){
   if(!orgConfig)return false;
@@ -1221,8 +1303,10 @@ async function createDriveFolder(name){
   return(await fr.json()).id;
 }
 
-async function uploadFile(file,folderId,desc){
-  var meta=JSON.stringify({name:file.name,parents:[folderId],description:desc});
+async function uploadFile(file,folderId,desc,createdTime){
+  var metaObj={name:file.name,parents:[folderId],description:desc};
+  if(createdTime)metaObj.createdTime=createdTime;
+  var meta=JSON.stringify(metaObj);
   var form=new FormData();
   form.append('metadata',new Blob([meta],{type:'application/json'}));
   form.append('file',file);
@@ -1245,7 +1329,7 @@ async function startUpload(){
       // Single folder for all
       var fid='';
       if(overrideMode==='existing'){fid=chosenFolderId;}
-      else{fid=await createDriveFolder(document.getElementById('override-custom-name').value.trim());}
+      else{fid=await findOrCreateFolder(document.getElementById('override-custom-name').value.trim());}
       for(var i=0;i<selectedFiles.length;i++)plan.push({fileIdx:i,folderId:fid});
       document.getElementById('modal-title').textContent='アップロード中...';
     }else{
@@ -1254,7 +1338,7 @@ async function startUpload(){
       var folderIds={};
       for(var g=0;g<photoGroups.length;g++){
         var grp=photoGroups[g];
-        var fid=await createDriveFolder(grp.folderName.trim());
+        var fid=await findOrCreateFolder(grp.folderName.trim());
         for(var j=0;j<grp.photoIndices.length;j++){
           plan.push({fileIdx:grp.photoIndices[j],folderId:fid});
         }
@@ -1289,7 +1373,8 @@ async function startUpload(){
       }
 
       try{
-        await uploadFile(file,p.folderId,buildFileDesc(p.fileIdx));
+        var exifDate=await readExifDate(file);
+        await uploadFile(file,p.folderId,buildFileDesc(p.fileIdx),exifDate);
         transferred++;
       }catch(e){errors.push(file.name);}
     }
@@ -2614,6 +2699,8 @@ async function proxyDownload(baseUrl){
   return resp.blob();
 }
 
+function isMobile(){return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)||window.innerWidth<=768;}
+
 async function openPhotosPicker(){
   if(!PROXY_URL){showToast('先にプロキシURLを設定してください');return;}
   var btn=document.getElementById('migrate-picker-btn');
@@ -2630,9 +2717,22 @@ async function openPhotosPicker(){
     migrateSessionId=session.id;
     var pickerUri=session.pickerUri;
 
-    // 2. Open picker in new window (autoclose after selection)
+    if(isMobile()){
+      // Mobile: save state and redirect (avoids popup blocker)
+      sessionStorage.setItem('choreia_picker_session',migrateSessionId);
+      window.location.href=pickerUri;
+      return;
+    }
+
+    // Desktop: open in new window with autoclose
     if(pickerUri.indexOf('/autoclose')===-1)pickerUri+=(pickerUri.indexOf('?')>=0?'&':'/')+'autoclose';
     var pickerWin=window.open(pickerUri,'_blank','width=800,height=600');
+    if(!pickerWin){
+      // Popup blocked — fallback to redirect
+      sessionStorage.setItem('choreia_picker_session',migrateSessionId);
+      window.location.href=pickerUri;
+      return;
+    }
     status.innerHTML='<div class="migrate-progress">'
       +'<div style="text-align:center">📷 Google フォトで写真を選択してください</div>'
       +'<div style="text-align:center;font-size:.8em;color:#8a7e6e;margin-top:4px">選択が完了したらウィンドウを閉じてください</div>'
@@ -2705,7 +2805,7 @@ async function startMigration(){
   var total=migrateMediaItems.length,transferred=0,errors=0,skipped=0;
 
   try{
-    var targetFolderId=await createDriveFolder(folderName);
+    var targetFolderId=await findOrCreateFolder(folderName);
 
     // Check existing files to skip duplicates
     var existingNames=new Set();
@@ -2794,6 +2894,220 @@ function updateMigrateProgress(el,albumTitle,current,total,fileName,done,errs,sk
     +'</div></div>';
 }
 
+// ==================== Resume: Find or Create Folder ====================
+async function findOrCreateFolder(name){
+  var q="'"+orgConfig.folderId+"' in parents and name='"+name.replace(/'/g,"\\'")+"' and mimeType='application/vnd.google-apps.folder' and trashed=false";
+  var data=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&driveId='+orgConfig.driveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true&fields=files(id)&pageSize=1');
+  if(data.files&&data.files.length)return data.files[0].id;
+  return createDriveFolder(name);
+}
+
+// ==================== EXIF Date Reader ====================
+function readExifDate(file){
+  return new Promise(function(resolve){
+    if(!file.type||file.type.indexOf('image/jpeg')===-1){resolve(null);return;}
+    var reader=new FileReader();
+    reader.onload=function(){
+      try{
+        var view=new DataView(reader.result);
+        if(view.getUint16(0)!==0xFFD8){resolve(null);return;} // Not JPEG
+        var offset=2;
+        while(offset<view.byteLength-2){
+          var marker=view.getUint16(offset);
+          if(marker===0xFFE1){// APP1 (EXIF)
+            var len=view.getUint16(offset+2);
+            var exifStart=offset+10;
+            var le=view.getUint16(exifStart)===0x4949; // Little endian?
+            var ifdOffset=view.getUint32(exifStart+4,le);
+            var ifdStart=exifStart+ifdOffset;
+            var entries=view.getUint16(ifdStart,le);
+            // Search IFD0 for ExifIFD pointer (tag 0x8769)
+            for(var i=0;i<entries;i++){
+              var tag=view.getUint16(ifdStart+2+i*12,le);
+              if(tag===0x8769){
+                var exifIfdOffset=view.getUint32(ifdStart+2+i*12+8,le);
+                var eiStart=exifStart+exifIfdOffset;
+                var eEntries=view.getUint16(eiStart,le);
+                for(var j=0;j<eEntries;j++){
+                  var eTag=view.getUint16(eiStart+2+j*12,le);
+                  if(eTag===0x9003){// DateTimeOriginal
+                    var strOffset=view.getUint32(eiStart+2+j*12+8,le);
+                    var bytes=new Uint8Array(reader.result,exifStart+strOffset,19);
+                    var s=String.fromCharCode.apply(null,bytes);
+                    // "YYYY:MM:DD HH:MM:SS" → RFC3339
+                    var rfc=s.replace(/^(\d{4}):(\d{2}):(\d{2})/,'$1-$2-$3').replace(' ','T')+'Z';
+                    resolve(rfc);return;
+                  }
+                }
+              }
+            }
+            resolve(null);return;
+          }
+          var segLen=view.getUint16(offset+2);
+          offset+=2+segLen;
+        }
+        resolve(null);
+      }catch(e){resolve(null);}
+    };
+    reader.onerror=function(){resolve(null);};
+    reader.readAsArrayBuffer(file.slice(0,65536));
+  });
+}
+
+// ==================== Takeout ZIP Upload ====================
+var ZIP_EXTS=/\.(jpe?g|png|heic|heif|webp|gif|mp4|mov|avi|mkv)$/i;
+var zipEntries=[]; // [{name, entry}]
+var zipMetadata={}; // filename → {creationTime, geoData, ...} from sidecar JSON
+
+async function handleZipFile(file){
+  if(!file)return;
+  var status=document.getElementById('zip-status');
+  var controls=document.getElementById('zip-controls');
+  status.style.display='';controls.style.display='none';
+  status.innerHTML='<div class="loading-state" style="padding:12px"><div class="spinner"></div><div>ZIPファイルを解析中...</div></div>';
+
+  try{
+    if(typeof JSZip==='undefined')throw new Error('JSZipが読み込まれていません。ページをリロードしてください。');
+    var zip=await JSZip.loadAsync(file);
+    zipEntries=[];zipMetadata={};
+
+    // First pass: collect sidecar JSONs for metadata
+    var jsonEntries={};
+    zip.forEach(function(path,entry){
+      if(!entry.dir&&path.endsWith('.json')){
+        jsonEntries[path]=entry;
+      }
+    });
+
+    // Parse sidecar JSONs (Takeout format: photo.jpg.json)
+    var jsonKeys=Object.keys(jsonEntries);
+    for(var i=0;i<jsonKeys.length;i++){
+      try{
+        var jText=await jsonEntries[jsonKeys[i]].async('text');
+        var jData=JSON.parse(jText);
+        if(jData.photoTakenTime||jData.creationTime){
+          var baseName=jsonKeys[i].replace(/\.json$/,'').split('/').pop();
+          zipMetadata[baseName]={
+            creationTime:jData.photoTakenTime?new Date(parseInt(jData.photoTakenTime.timestamp)*1000).toISOString():null,
+            geoData:jData.geoData||null,
+            description:jData.description||''
+          };
+        }
+      }catch(x){}
+    }
+
+    // Second pass: collect photo/video entries
+    zip.forEach(function(path,entry){
+      if(!entry.dir&&ZIP_EXTS.test(path)){
+        zipEntries.push({name:path.split('/').pop(),fullPath:path,entry:entry});
+      }
+    });
+
+    if(!zipEntries.length){
+      status.innerHTML='<p style="color:#8a7e6e;font-size:.85em;padding:8px">ZIPファイルに写真が見つかりませんでした。</p>';
+      return;
+    }
+
+    status.innerHTML='<div class="migrate-progress" style="border-color:#a0522d">'
+      +'<div style="font-weight:600;color:#a0522d">📦 '+zipEntries.length+'枚の写真・動画が見つかりました</div>'
+      +'<div style="font-size:.8em;color:#8a7e6e;margin-top:4px">メタデータ: '+Object.keys(zipMetadata).length+'件</div>'
+      +'</div>';
+    controls.style.display='';
+    document.getElementById('zip-folder-name').value=getTodayYM()+' Takeout移行';
+    document.getElementById('zip-start-btn').textContent=zipEntries.length+'枚を共有ドライブに転送';
+  }catch(e){
+    console.error('ZIP error:',e);
+    status.innerHTML='<p style="color:#c0392b;font-size:.85em;padding:8px">😥 '+escapeHtml(e.message)+'</p>';
+  }
+}
+
+async function startZipUpload(){
+  if(!zipEntries.length)return;
+  var folderName=document.getElementById('zip-folder-name').value.trim();
+  if(!folderName){showToast('フォルダ名を入力してください');return;}
+
+  var btn=document.getElementById('zip-start-btn');
+  btn.disabled=true;btn.textContent='転送中...';
+  var progArea=document.getElementById('zip-progress-area');
+  progArea.style.display='';
+
+  var total=zipEntries.length,transferred=0,errors=0,skipped=0;
+
+  try{
+    var targetFolderId=await findOrCreateFolder(folderName);
+
+    // Check existing files
+    var existingNames=new Set();
+    try{
+      var eq="'"+targetFolderId+"' in parents and trashed=false";
+      var ed=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(eq)+'&driveId='+orgConfig.driveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true&fields=files(name)&pageSize=1000');
+      (ed.files||[]).forEach(function(f){existingNames.add(f.name)});
+    }catch(x){}
+
+    if(existingNames.size)showToast(existingNames.size+'件の既存ファイルはスキップします');
+
+    for(var i=0;i<zipEntries.length;i++){
+      var ze=zipEntries[i];
+      updateMigrateProgress(progArea,'Takeout',i+1,total,ze.name,transferred,errors,skipped);
+
+      if(existingNames.has(ze.name)){skipped++;continue;}
+
+      try{
+        var blob=await ze.entry.async('blob');
+
+        // Build description from sidecar metadata
+        var desc='📦 Takeout移行';
+        var meta=zipMetadata[ze.name];
+        var createdTime=null;
+        if(meta){
+          if(meta.creationTime){createdTime=meta.creationTime;desc+='\n📅 '+new Date(meta.creationTime).toLocaleString('ja-JP');}
+          if(meta.geoData&&meta.geoData.latitude)desc+='\n📍 '+meta.geoData.latitude+','+meta.geoData.longitude;
+          if(meta.description)desc+='\n'+meta.description;
+        }
+
+        // If no sidecar date, try EXIF
+        if(!createdTime&&blob.type&&blob.type.indexOf('image/')===0){
+          createdTime=await readExifDate(blob);
+        }
+
+        var metaObj={name:ze.name,parents:[targetFolderId],description:desc};
+        if(createdTime)metaObj.createdTime=createdTime;
+        var metaJson=JSON.stringify(metaObj);
+        var form=new FormData();
+        form.append('metadata',new Blob([metaJson],{type:'application/json'}));
+        form.append('file',blob);
+        var upResp=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',
+          {method:'POST',headers:{'Authorization':'Bearer '+accessToken},body:form});
+        if(!upResp.ok)throw new Error('Upload failed');
+        transferred++;
+      }catch(e){
+        console.warn('ZIP upload error for '+ze.name+':',e);
+        errors++;
+      }
+
+      if((i+1)%10===0)await new Promise(function(r){setTimeout(r,300)});
+    }
+
+    progArea.innerHTML='<div class="migrate-progress">'
+      +'<div style="font-size:1.2em;text-align:center;margin-bottom:8px">✅</div>'
+      +'<div style="text-align:center;font-weight:600">Takeout移行完了</div>'
+      +'<div style="text-align:center;color:#5a5044;margin-top:4px">'
+      +transferred+'枚を転送'
+      +(skipped?' / '+skipped+'枚スキップ':'')
+      +(errors?' / '+errors+'件エラー':'')
+      +'</div></div>';
+    btn.disabled=false;btn.textContent=zipEntries.length+'枚を共有ドライブに転送';
+    showToast('Takeout移行完了！ '+transferred+'枚を転送しました');
+  }catch(e){
+    console.error('ZIP upload failed:',e);
+    progArea.innerHTML='<div class="migrate-progress" style="border:1px solid #c0392b">'
+      +'<div style="color:#c0392b;font-weight:600">😥 '+escapeHtml(e.message)+'</div>'
+      +(transferred?'<div style="margin-top:4px">'+transferred+'枚は転送済み</div>':'')
+      +'</div>';
+    btn.disabled=false;btn.textContent='再試行';
+  }
+}
+
 // ==================== Utils ====================
 async function apiFetch(url,opts){
   opts=opts||{};opts.headers=opts.headers||{};opts.headers['Authorization']='Bearer '+accessToken;
@@ -2819,6 +3133,8 @@ function buildRibbonTags(desc){
 function getTodayYM(){var d=new Date();return d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')}
 function escapeHtml(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
 function escapeAttr(s){return(s||'').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function toggleGuide(){var o=document.getElementById('guide-overlay');o.classList.toggle('active');document.body.style.overflow=o.classList.contains('active')?'hidden':'';}
+function closeGuide(){document.getElementById('guide-overlay').classList.remove('active');document.body.style.overflow='';}
 function showToast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show')},2500)}
 
 (function(){var c=setInterval(function(){if(typeof google!=='undefined'&&google.accounts){clearInterval(c);initGIS();}},100)})();
