@@ -2520,7 +2520,7 @@ async function pickerApi(path,body){
   var resp=await fetch(PROXY_URL+'/picker/'+path,{
     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
   });
-  if(!resp.ok){var e='';try{e=JSON.stringify(await resp.json())}catch(x){}throw new Error('Picker API '+resp.status+': '+e);}
+  if(!resp.ok){var e='';try{var ej=await resp.json();e=ej.googleResponse||ej.error||JSON.stringify(ej)}catch(x){e=await resp.text().catch(function(){return''})}throw new Error('Picker API '+resp.status+': '+e);}
   return resp.json();
 }
 

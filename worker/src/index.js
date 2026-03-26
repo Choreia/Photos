@@ -136,6 +136,20 @@ async function handlePickerProxy(request, url) {
   const resp = await fetch(apiUrl, fetchOpts);
   const data = await resp.text();
 
+  // On error, include debug info
+  if (!resp.ok) {
+    return new Response(JSON.stringify({
+      error: 'Picker API error',
+      status: resp.status,
+      apiUrl: apiUrl,
+      method: httpMethod,
+      googleResponse: data
+    }), {
+      status: resp.status,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   return new Response(data, {
     status: resp.status,
     headers: { 'Content-Type': 'application/json' }
