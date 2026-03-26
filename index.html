@@ -2678,25 +2678,26 @@ async function startMigration(){
 
     for(var i=0;i<migrateMediaItems.length;i++){
       var item=migrateMediaItems[i];
-      var fileName=item.filename||item.id+'.jpg';
-      var mimeType=item.mimeType||'image/jpeg';
+      var mf=item.mediaFile||{};
+      var fileName=mf.filename||item.id+'.jpg';
+      var mimeType=mf.mimeType||'image/jpeg';
+      var baseUrl=mf.baseUrl||'';
 
       updateMigrateProgress(progArea,'Google Photos',i+1,total,fileName,transferred,errors,skipped);
 
       if(existingNames.has(fileName)){skipped++;continue;}
+      if(!baseUrl){console.warn('No baseUrl for',fileName);errors++;continue;}
 
       try{
         // Download via proxy (handles CORS + auth)
         // Worker tries multiple strategies (=w16383-h16383, =d, raw)
-        var blob=await proxyDownload(item.baseUrl);
+        var blob=await proxyDownload(baseUrl);
 
         // Build description
         var desc='📷 Google Photos移行';
-        if(item.mediaMetadata){
-          var mm=item.mediaMetadata;
-          if(mm.creationTime)desc+='\n📅 '+new Date(mm.creationTime).toLocaleString('ja-JP');
-          if(mm.photo&&mm.photo.cameraMake)desc+='\n📷 '+mm.photo.cameraMake+' '+(mm.photo.cameraModel||'');
-        }
+        var mm=mf.mediaFileMetadata||{};
+        if(item.createTime)desc+='\n📅 '+new Date(item.createTime).toLocaleString('ja-JP');
+        if(mm.cameraMake)desc+='\n📷 '+mm.cameraMake+' '+(mm.cameraModel||'');
 
         // Upload to Drive
         var meta=JSON.stringify({name:fileName,parents:[targetFolderId],description:desc});
