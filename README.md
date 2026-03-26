@@ -13,13 +13,16 @@ https://choreia.github.io/Photos/
 - **フォルダ閲覧** — 転送先フォルダの階層をブラウズし、アップロード済み写真を確認
 - **横断検索** — AIが付けたタグ・キーワードで共有ドライブ内の写真を検索
 - **管理者機能** — 管理者の追加・削除、転送先の変更
+- **Google Photos移行** — Google フォトから写真を選択し、共有ドライブへ自動転送（退職者の写真消失対策）
 
 ## 技術構成
 
 - 単一HTMLファイル（SPA）— ビルド不要
 - Google Identity Services（OAuth 2.0）
 - Google Drive API v3
+- Google Photos Picker API（写真移行用）
 - Gemini API（`gemini-2.5-flash`）
+- Cloudflare Worker（Photos Picker APIプロキシ — 無料枠）
 
 ## セットアップ
 
@@ -28,7 +31,19 @@ https://choreia.github.io/Photos/
 3. 必要なAPIを有効化:
    - Google Drive API
    - Generative Language API
+   - Photos Picker API（Google Photos移行機能を使う場合）
 4. Webサーバーでホスティング（GitHub Pages等）
+
+### Google Photos移行のセットアップ（オプション）
+
+1. `worker/` ディレクトリでプロキシをデプロイ:
+   ```bash
+   cd worker
+   npm install
+   npx wrangler deploy
+   ```
+2. デプロイ後に表示されるURL（例: `https://choreia-photos-proxy.xxx.workers.dev`）をコピー
+3. アプリの管理者設定 → 「プロキシURL」に貼り付けて保存
 
 ## 利用の流れ
 
