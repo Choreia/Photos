@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Photos">
 <meta name="theme-color" content="#a0522d">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; connect-src https://www.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://generativelanguage.googleapis.com https://lh3.googleusercontent.com https://sheets.googleapis.com; frame-src https://accounts.google.com https://www.openstreetmap.org; img-src * data: blob:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; connect-src https://www.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://generativelanguage.googleapis.com https://lh3.googleusercontent.com https://sheets.googleapis.com https://photoslibrary.googleapis.com; frame-src https://accounts.google.com https://www.openstreetmap.org; img-src * data: blob:;">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;background:#faf8f5;color:#2c2418;line-height:1.6;min-height:100vh;-webkit-tap-highlight-color:transparent}
@@ -270,6 +270,22 @@ input[type="file"]{display:none}
 .toast.show{transform:translateX(-50%) translateY(0)}
 .footer-info{text-align:center;padding:16px;font-size:.75em;color:#b0a89e}
 
+/* Migration */
+.migrate-section{margin-top:20px;padding-top:16px;border-top:1px solid #ece6de}
+.migrate-album-list{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto;margin:10px 0}
+.migrate-album{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border:2px solid #ece6de;border-radius:10px;cursor:pointer;font-size:.85em}
+.migrate-album:active{transform:scale(.98)}
+.migrate-album.selected{border-color:#a0522d;background:#fdf5f0}
+.migrate-album .thumb{width:48px;height:48px;border-radius:6px;object-fit:cover;background:#f5ece5}
+.migrate-album .info{flex:1}
+.migrate-album .title{font-weight:600;color:#5a3e28}
+.migrate-album .count{font-size:.8em;color:#8a7e6e}
+.migrate-album .check{width:20px;height:20px;border-radius:50%;border:2px solid #d4cdc2;font-size:10px;display:flex;align-items:center;justify-content:center;color:transparent}
+.migrate-album.selected .check{background:#a0522d;border-color:#a0522d;color:#fff}
+.migrate-progress{margin-top:12px;padding:12px;background:#fdf5f0;border-radius:10px;font-size:.85em}
+.migrate-progress-bar{height:6px;background:#ece6de;border-radius:3px;margin-top:8px;overflow:hidden}
+.migrate-progress-bar .fill{height:100%;background:#a0522d;border-radius:3px;transition:width .3s}
+
 /* Setup */
 .drive-list,.folder-list-setup{display:flex;flex-direction:column;gap:6px}
 .drive-item,.folder-item-setup{display:flex;align-items:center;gap:10px;padding:12px 14px;border:2px solid #ece6de;border-radius:12px;cursor:pointer}
@@ -364,6 +380,21 @@ input[type="file"]{display:none}
         <button class="admin-add-btn" onclick="saveGeminiKey()">保存</button>
       </div>
       <p style="font-size:.7em;color:#8a7e6e;margin-top:4px">Google AI StudioでAPIキーを取得してください</p>
+      <div class="migrate-section">
+        <h2>Google Photos 移行</h2>
+        <p style="font-size:.8em;color:#8a7e6e;margin:8px 0">Google フォトのアルバムから共有ドライブに写真を一括転送します。退職者の写真消失を防ぐために、定期的に移行してください。</p>
+        <button class="admin-add-btn" id="migrate-load-btn" onclick="loadGooglePhotosAlbums()" style="width:100%">📷 Google フォトのアルバムを読み込む</button>
+        <div id="migrate-albums"></div>
+        <div id="migrate-controls" style="display:none;margin-top:10px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <label style="font-size:.85em;color:#5a3e28;white-space:nowrap">フォルダ名:</label>
+            <input type="text" class="admin-add-input" id="migrate-folder-name" placeholder="YYYYMM アルバム名（自動入力）">
+          </div>
+          <button class="btn-primary" id="migrate-start-btn" onclick="startMigration()" style="width:100%">選択したアルバムを転送</button>
+        </div>
+        <div id="migrate-progress-area" style="display:none"></div>
+      </div>
+
       <h2 style="margin-top:20px">SNSアカウント</h2>
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
         <div class="admin-add-row"><span style="width:24px;text-align:center">𝕏</span><input type="text" class="admin-add-input" id="sns-account-x" placeholder="@ユーザー名" onchange="saveSnsAccounts()"></div>
@@ -558,7 +589,7 @@ input[type="file"]{display:none}
 <script>
 // ==================== Config ====================
 var CLIENT_ID='595564106580-hsrunbvfacmr23d2jopl462taqilip75.apps.googleusercontent.com';
-var SCOPES='https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets';
+var SCOPES='https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/photoslibrary.readonly';
 var GEMINI_API_KEY=''; // Loaded from orgConfig
 var CONFIG_FILENAME='choreia-photos-config.json';
 var BLOCKED_DOMAINS=['gmail.com','googlemail.com','yahoo.co.jp','yahoo.com','hotmail.com','outlook.com','outlook.jp','icloud.com','me.com','mac.com','aol.com','protonmail.com','zoho.com','live.com','live.jp','msn.com','nifty.com','biglobe.ne.jp','ocn.ne.jp'];
@@ -2456,6 +2487,254 @@ async function doSearch(){
     document.getElementById('search-loading').style.display='none';
     rc.innerHTML='<div class="loading-state">😥 検索に失敗しました。もう一度お試しください</div>';
   }
+}
+
+// ==================== Google Photos Migration ====================
+var migrateSelectedAlbums=[]; // [{id, title, mediaItemsCount, coverUrl}]
+var migrateAlbums=[]; // all loaded albums
+
+async function loadGooglePhotosAlbums(){
+  var btn=document.getElementById('migrate-load-btn');
+  btn.disabled=true;btn.textContent='読み込み中...';
+  var c=document.getElementById('migrate-albums');
+  c.innerHTML='<div class="loading-state" style="padding:16px"><div class="spinner"></div></div>';
+  document.getElementById('migrate-controls').style.display='none';
+  migrateAlbums=[];migrateSelectedAlbums=[];
+
+  try{
+    var nextPageToken='';
+    do{
+      var url='https://photoslibrary.googleapis.com/v1/albums?pageSize=50';
+      if(nextPageToken)url+='&pageToken='+encodeURIComponent(nextPageToken);
+      var data=await apiFetch(url);
+      var albums=data.albums||[];
+      migrateAlbums=migrateAlbums.concat(albums);
+      nextPageToken=data.nextPageToken||'';
+    }while(nextPageToken);
+
+    if(!migrateAlbums.length){
+      c.innerHTML='<p style="color:#8a7e6e;font-size:.85em;padding:8px">Google フォトにアルバムがありません</p>';
+      btn.disabled=false;btn.textContent='📷 Google フォトのアルバムを読み込む';
+      return;
+    }
+
+    renderMigrateAlbums();
+    btn.disabled=false;btn.textContent='📷 再読み込み';
+  }catch(e){
+    console.error('Photos API error:',e);
+    var errMsg='Google フォトの読み込みに失敗しました。';
+    if(e.message&&e.message.indexOf('403')>=0){
+      errMsg+='Photos Library API が有効になっていない可能性があります。Google Cloud Console で有効化してください。';
+    }else if(e.message&&e.message.indexOf('401')>=0){
+      errMsg+='再ログインしてください（Google フォトへのアクセス許可が必要です）。';
+    }
+    c.innerHTML='<p style="color:#c0392b;font-size:.85em;padding:8px">😥 '+escapeHtml(errMsg)+'</p>';
+    btn.disabled=false;btn.textContent='📷 Google フォトのアルバムを読み込む';
+  }
+}
+
+function renderMigrateAlbums(){
+  var c=document.getElementById('migrate-albums');
+  var h='<div class="migrate-album-list">';
+  for(var i=0;i<migrateAlbums.length;i++){
+    var a=migrateAlbums[i];
+    var count=a.mediaItemsCount||0;
+    var cover=a.coverPhotoBaseUrl?a.coverPhotoBaseUrl+'=w96-h96-c':'';
+    var sel=migrateSelectedAlbums.some(function(s){return s.id===a.id});
+    h+='<div class="migrate-album'+(sel?' selected':'')+'" onclick="toggleMigrateAlbum('+i+')">';
+    if(cover)h+='<img class="thumb" src="'+escapeAttr(cover)+'" alt="">';
+    else h+='<div class="thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.5em">📷</div>';
+    h+='<div class="info"><div class="title">'+escapeHtml(a.title||'無題')+'</div><div class="count">'+count+'枚</div></div>';
+    h+='<div class="check">✓</div></div>';
+  }
+  c.innerHTML=h+'</div>';
+}
+
+function toggleMigrateAlbum(idx){
+  var a=migrateAlbums[idx];
+  var existIdx=-1;
+  for(var i=0;i<migrateSelectedAlbums.length;i++){
+    if(migrateSelectedAlbums[i].id===a.id){existIdx=i;break;}
+  }
+  if(existIdx>=0)migrateSelectedAlbums.splice(existIdx,1);
+  else migrateSelectedAlbums.push({id:a.id,title:a.title||'無題',mediaItemsCount:parseInt(a.mediaItemsCount)||0});
+
+  renderMigrateAlbums();
+
+  var ctrl=document.getElementById('migrate-controls');
+  if(migrateSelectedAlbums.length){
+    ctrl.style.display='';
+    // Auto-suggest folder name
+    if(migrateSelectedAlbums.length===1){
+      document.getElementById('migrate-folder-name').value=getTodayYM()+' '+migrateSelectedAlbums[0].title;
+    }else{
+      document.getElementById('migrate-folder-name').value=getTodayYM()+' Google Photos移行（'+migrateSelectedAlbums.length+'アルバム）';
+    }
+    var total=0;
+    for(var i=0;i<migrateSelectedAlbums.length;i++)total+=migrateSelectedAlbums[i].mediaItemsCount;
+    document.getElementById('migrate-start-btn').textContent='選択した'+migrateSelectedAlbums.length+'アルバム（計'+total+'枚）を転送';
+  }else{
+    ctrl.style.display='none';
+  }
+}
+
+async function startMigration(){
+  if(!migrateSelectedAlbums.length)return;
+  var folderName=document.getElementById('migrate-folder-name').value.trim();
+  if(!folderName){showToast('フォルダ名を入力してください');return;}
+
+  var btn=document.getElementById('migrate-start-btn');
+  btn.disabled=true;btn.textContent='転送中...';
+  var progArea=document.getElementById('migrate-progress-area');
+  progArea.style.display='';
+
+  var totalPhotos=0,transferred=0,errors=0,skipped=0;
+
+  try{
+    // Create per-album folders if multiple albums, or single folder
+    var useSubfolders=migrateSelectedAlbums.length>1;
+    var parentFolderId;
+
+    if(useSubfolders){
+      // Create parent folder
+      parentFolderId=await createDriveFolder(folderName);
+    }
+
+    for(var a=0;a<migrateSelectedAlbums.length;a++){
+      var album=migrateSelectedAlbums[a];
+      var targetFolderId;
+
+      if(useSubfolders){
+        // Create sub-folder per album
+        var subName=album.title;
+        var r=await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true',{
+          method:'POST',headers:{'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},
+          body:JSON.stringify({name:subName,mimeType:'application/vnd.google-apps.folder',parents:[parentFolderId]})
+        });
+        if(!r.ok)throw new Error('フォルダ作成失敗: '+subName);
+        targetFolderId=(await r.json()).id;
+      }else{
+        targetFolderId=await createDriveFolder(folderName);
+      }
+
+      // Fetch all media items in this album
+      var mediaItems=[];
+      var nextToken='';
+      do{
+        var body={albumId:album.id,pageSize:100};
+        if(nextToken)body.pageToken=nextToken;
+        var resp=await fetch('https://photoslibrary.googleapis.com/v1/mediaItems:search',{
+          method:'POST',headers:{'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},
+          body:JSON.stringify(body)
+        });
+        if(!resp.ok){
+          var errJ='';try{errJ=JSON.stringify(await resp.json())}catch(x){}
+          throw new Error('Photos API error '+resp.status+': '+errJ);
+        }
+        var itemData=await resp.json();
+        mediaItems=mediaItems.concat(itemData.mediaItems||[]);
+        nextToken=itemData.nextPageToken||'';
+      }while(nextToken);
+
+      totalPhotos+=mediaItems.length;
+
+      // Check existing files in target folder to skip duplicates
+      var existingNames=new Set();
+      try{
+        var eq="'"+targetFolderId+"' in parents and trashed=false";
+        var ed=await apiFetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(eq)+'&driveId='+orgConfig.driveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true&fields=files(name)&pageSize=1000');
+        (ed.files||[]).forEach(function(f){existingNames.add(f.name)});
+      }catch(x){}
+
+      // Transfer each photo
+      for(var i=0;i<mediaItems.length;i++){
+        var item=mediaItems[i];
+        var fileName=item.filename||('photo_'+(i+1)+'.jpg');
+
+        updateMigrateProgress(progArea,album.title,transferred+skipped+errors+1,totalPhotos,fileName,transferred,errors,skipped);
+
+        // Skip if already exists
+        if(existingNames.has(fileName)){
+          skipped++;
+          continue;
+        }
+
+        try{
+          // Download from Google Photos (append =d for original quality)
+          var dlUrl=item.baseUrl+'=d';
+          if(item.mediaMetadata&&item.mediaMetadata.video){
+            dlUrl=item.baseUrl+'=dv'; // video download
+          }
+          var dlResp=await fetch(dlUrl);
+          if(!dlResp.ok)throw new Error('Download failed');
+          var blob=await dlResp.blob();
+
+          // Build description with metadata
+          var desc='';
+          if(item.description)desc+=item.description+'\n';
+          desc+='📷 Google Photos移行';
+          if(item.mediaMetadata){
+            var mm=item.mediaMetadata;
+            if(mm.creationTime)desc+='\n📅 '+new Date(mm.creationTime).toLocaleString('ja-JP');
+            if(mm.photo&&mm.photo.cameraMake)desc+='\n📷 '+mm.photo.cameraMake+' '+(mm.photo.cameraModel||'');
+          }
+
+          // Upload to Drive
+          var meta=JSON.stringify({name:fileName,parents:[targetFolderId],description:desc});
+          var form=new FormData();
+          form.append('metadata',new Blob([meta],{type:'application/json'}));
+          form.append('file',blob);
+          var upResp=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',
+            {method:'POST',headers:{'Authorization':'Bearer '+accessToken},body:form});
+          if(!upResp.ok)throw new Error('Upload failed');
+          transferred++;
+        }catch(e){
+          console.warn('Migration error for '+fileName+':',e);
+          errors++;
+        }
+
+        // Rate limit every 10 files
+        if((i+1)%10===0)await new Promise(function(r){setTimeout(r,500)});
+      }
+    }
+
+    // Done
+    progArea.innerHTML='<div class="migrate-progress">'
+      +'<div style="font-size:1.2em;text-align:center;margin-bottom:8px">✅</div>'
+      +'<div style="text-align:center;font-weight:600">移行完了</div>'
+      +'<div style="text-align:center;color:#5a5044;margin-top:4px">'
+      +transferred+'枚を転送しました'
+      +(skipped?' / '+skipped+'枚スキップ（既存）':'')
+      +(errors?' / '+errors+'件エラー':'')
+      +'</div></div>';
+    btn.disabled=false;btn.textContent='選択したアルバムを転送';
+    showToast('Google フォト移行完了！ '+transferred+'枚を転送しました');
+
+  }catch(e){
+    console.error('Migration failed:',e);
+    progArea.innerHTML='<div class="migrate-progress" style="border:1px solid #c0392b">'
+      +'<div style="color:#c0392b;font-weight:600">😥 移行中にエラーが発生しました</div>'
+      +'<div style="font-size:.8em;color:#5a5044;margin-top:4px">'+escapeHtml(e.message)+'</div>'
+      +(transferred?'<div style="margin-top:4px">'+transferred+'枚は正常に転送されました</div>':'')
+      +'</div>';
+    btn.disabled=false;btn.textContent='再試行';
+  }
+}
+
+function updateMigrateProgress(el,albumTitle,current,total,fileName,done,errs,skip){
+  var pct=Math.round((current/total)*100);
+  el.innerHTML='<div class="migrate-progress">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center">'
+    +'<span>📁 '+escapeHtml(albumTitle)+'</span>'
+    +'<span style="font-weight:600">'+pct+'%</span></div>'
+    +'<div class="migrate-progress-bar"><div class="fill" style="width:'+pct+'%"></div></div>'
+    +'<div style="margin-top:6px;font-size:.8em;color:#5a5044">'
+    +'📄 '+escapeHtml(fileName)+'<br>'
+    +current+' / '+total+'枚'
+    +(done?' ✅'+done:'')
+    +(skip?' ⏭'+skip:'')
+    +(errs?' ❌'+errs:'')
+    +'</div></div>';
 }
 
 // ==================== Utils ====================
