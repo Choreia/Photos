@@ -106,7 +106,7 @@ async function handleDownload(request) {
  */
 async function handlePickerProxy(request, url) {
   const body = await request.json();
-  const { accessToken, ...apiBody } = body;
+  const { accessToken, method, ...apiBody } = body;
 
   if (!accessToken) {
     return new Response(
@@ -119,14 +119,17 @@ async function handlePickerProxy(request, url) {
   const apiPath = url.pathname.replace('/picker/', '/v1/');
   const apiUrl = PICKER_API + apiPath;
 
+  // Use explicit method if provided, otherwise infer
+  const httpMethod = method || (Object.keys(apiBody).length ? 'POST' : 'GET');
+
   const fetchOpts = {
-    method: Object.keys(apiBody).length ? 'POST' : 'GET',
+    method: httpMethod,
     headers: {
       'Authorization': 'Bearer ' + accessToken,
       'Content-Type': 'application/json'
     }
   };
-  if (Object.keys(apiBody).length) {
+  if (httpMethod === 'POST' && Object.keys(apiBody).length) {
     fetchOpts.body = JSON.stringify(apiBody);
   }
 

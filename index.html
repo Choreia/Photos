@@ -2546,7 +2546,7 @@ async function openPhotosPicker(){
 
   try{
     // 1. Create picker session
-    var session=await pickerApi('sessions',{});
+    var session=await pickerApi('sessions',{method:'POST'});
     migrateSessionId=session.id;
     var pickerUri=session.pickerUri;
 
