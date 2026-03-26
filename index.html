@@ -106,6 +106,10 @@ input[type="file"]{display:none}
 .browse-folder .name{font-size:.9em;font-weight:500;flex:1}
 .browse-folder .count{font-size:.75em;color:#8a7e6e}
 .browse-folder .arrow{color:#c4a882;font-size:1em}
+.browse-folder .admin-actions{display:flex;gap:4px;margin-left:auto}
+.browse-folder .admin-actions button{background:none;border:none;cursor:pointer;font-size:.8em;padding:4px 6px;border-radius:6px;color:#8a7e6e}
+.browse-folder .admin-actions button:hover{background:#f5ece5}
+.browse-folder .admin-actions button.del{color:#c0392b}
 .browse-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px}
 .browse-photo{border-radius:10px;overflow:hidden;background:#f5ece5;cursor:pointer;position:relative}
 .browse-photo img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
@@ -1356,11 +1360,20 @@ function loadBrowseFolder(folderId,folderName,isRoot){
     }
 
     if(folders.length){
+      var adm=isAdmin();
       var h='<div class="browse-folders">';
       for(var i=0;i<folders.length;i++){
-        h+='<div class="browse-folder" onclick="openBrowseFolder(\''+folders[i].id+'\',\''+escapeAttr(folders[i].name)+'\')">'
-          +'<span class="icon">📁</span><span class="name">'+escapeHtml(folders[i].name)+'</span>'
-          +'<span class="arrow">▶</span></div>';
+        var fid=folders[i].id,fname=folders[i].name;
+        h+='<div class="browse-folder">'
+          +'<span class="icon" onclick="openBrowseFolder(\''+fid+'\',\''+escapeAttr(fname)+'\')">📁</span>'
+          +'<span class="name" onclick="openBrowseFolder(\''+fid+'\',\''+escapeAttr(fname)+'\')">'+escapeHtml(fname)+'</span>';
+        if(adm){
+          h+='<span class="admin-actions">'
+            +'<button onclick="event.stopPropagation();renameFolder(\''+fid+'\',\''+escapeAttr(fname)+'\')">✏️</button>'
+            +'<button class="del" onclick="event.stopPropagation();deleteFolder(\''+fid+'\',\''+escapeAttr(fname)+'\')">🗑</button>'
+            +'</span>';
+        }
+        h+='<span class="arrow" onclick="openBrowseFolder(\''+fid+'\',\''+escapeAttr(fname)+'\')">▶</span></div>';
       }
       fc.innerHTML=h+'</div>';
     }
@@ -1387,6 +1400,32 @@ function loadBrowseFolder(folderId,folderName,isRoot){
     document.getElementById('browse-loading').style.display='none';
     fc.innerHTML='<div class="browse-empty">😥 読み込みに失敗しました。再読み込みしてください</div>';
   });
+}
+
+// ==================== Folder Management (Admin) ====================
+async function renameFolder(folderId,currentName){
+  var newName=prompt('フォルダ名を変更',currentName);
+  if(!newName||newName===currentName)return;
+  try{
+    await fetch('https://www.googleapis.com/drive/v3/files/'+folderId+'?supportsAllDrives=true',{
+      method:'PATCH',headers:{'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},
+      body:JSON.stringify({name:newName})
+    });
+    showToast('「'+newName+'」に変更しました');
+    loadBrowseFolder(browseCurrentFolderId,browsePath[browsePath.length-1].name,false);
+  }catch(e){showToast('😥 名前変更に失敗しました');}
+}
+
+async function deleteFolder(folderId,folderName){
+  if(!confirm('「'+folderName+'」を削除しますか？\n中の写真もすべてゴミ箱に移動します。'))return;
+  try{
+    await fetch('https://www.googleapis.com/drive/v3/files/'+folderId+'?supportsAllDrives=true',{
+      method:'PATCH',headers:{'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},
+      body:JSON.stringify({trashed:true})
+    });
+    showToast('「'+folderName+'」を削除しました');
+    loadBrowseFolder(browseCurrentFolderId,browsePath[browsePath.length-1].name,false);
+  }catch(e){showToast('😥 削除に失敗しました');}
 }
 
 // ==================== Retag ====================
