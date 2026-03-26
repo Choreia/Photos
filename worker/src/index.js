@@ -117,7 +117,7 @@ async function handlePickerProxy(request, url) {
 
   // Map /picker/sessions → PICKER_API/v1/sessions etc.
   const apiPath = url.pathname.replace('/picker/', '/v1/');
-  const apiUrl = PICKER_API + apiPath;
+  const apiUrl = PICKER_API + apiPath + url.search;
 
   // Use explicit method if provided, otherwise infer
   const httpMethod = method || (Object.keys(apiBody).length ? 'POST' : 'GET');
