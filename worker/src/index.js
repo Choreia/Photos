@@ -56,47 +56,91 @@ export default {
  * → Google Photos からダウンロードして返す
  */
 async function handleDownload(request) {
-  const { baseUrl, accessToken } = await request.json();
+  let body;
+  try {
+    body = await request.json();
+  } catch (e) {
+    return new Response(
+      JSON.stringify({ error: 'Invalid JSON body' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const { baseUrl, accessToken } = body;
 
   if (!baseUrl || !accessToken) {
     return new Response(
-      JSON.stringify({ error: 'baseUrl and accessToken required' }),
+      JSON.stringify({ error: 'baseUrl and accessToken required', hasBaseUrl: !!baseUrl, hasToken: !!accessToken }),
       { status: 400, headers: { 'Content-Type': 'application/json' } }
     );
   }
 
   // Validate URL — only allow Google domains
-  const parsed = new URL(baseUrl);
-  if (!parsed.hostname.endsWith('.googleusercontent.com') &&
-      !parsed.hostname.endsWith('.googleapis.com')) {
+  let parsed;
+  try {
+    parsed = new URL(baseUrl);
+  } catch (e) {
     return new Response(
-      JSON.stringify({ error: 'Invalid baseUrl domain' }),
+      JSON.stringify({ error: 'Invalid baseUrl', baseUrl: baseUrl.substring(0, 100) }),
       { status: 400, headers: { 'Content-Type': 'application/json' } }
     );
   }
 
-  // Append =d for original quality download
-  const dlUrl = baseUrl.includes('=') ? baseUrl : baseUrl + '=d';
-
-  const resp = await fetch(dlUrl, {
-    headers: { 'Authorization': 'Bearer ' + accessToken }
-  });
-
-  if (!resp.ok) {
-    const errText = await resp.text().catch(() => '');
+  if (!parsed.hostname.endsWith('.googleusercontent.com') &&
+      !parsed.hostname.endsWith('.googleapis.com')) {
     return new Response(
-      JSON.stringify({ error: 'Download failed: ' + resp.status, detail: errText }),
-      { status: resp.status, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: 'Invalid baseUrl domain', hostname: parsed.hostname }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
     );
   }
 
-  // Stream the photo back with original content type
-  const headers = new Headers();
-  headers.set('Content-Type', resp.headers.get('Content-Type') || 'application/octet-stream');
-  const cd = resp.headers.get('Content-Disposition');
-  if (cd) headers.set('Content-Disposition', cd);
+  // Try multiple download strategies
+  const urls = [
+    baseUrl + '=w16383-h16383',  // max resolution
+    baseUrl + '=d',               // original download
+    baseUrl,                      // raw baseUrl
+  ];
 
-  return new Response(resp.body, { status: 200, headers });
+  for (const dlUrl of urls) {
+    try {
+      const resp = await fetch(dlUrl, {
+        headers: { 'Authorization': 'Bearer ' + accessToken }
+      });
+
+      if (resp.ok) {
+        const headers = new Headers();
+        headers.set('Content-Type', resp.headers.get('Content-Type') || 'application/octet-stream');
+        const cd = resp.headers.get('Content-Disposition');
+        if (cd) headers.set('Content-Disposition', cd);
+        return new Response(resp.body, { status: 200, headers });
+      }
+    } catch (e) {
+      // Try next URL
+    }
+  }
+
+  // All failed — return debug info
+  // Try one more time to get error details
+  try {
+    const lastResp = await fetch(urls[0], {
+      headers: { 'Authorization': 'Bearer ' + accessToken }
+    });
+    const errText = await lastResp.text().catch(() => '');
+    return new Response(
+      JSON.stringify({
+        error: 'All download strategies failed',
+        status: lastResp.status,
+        triedUrls: urls.map(u => u.substring(0, 80)),
+        detail: errText.substring(0, 500)
+      }),
+      { status: 502, headers: { 'Content-Type': 'application/json' } }
+    );
+  } catch (e) {
+    return new Response(
+      JSON.stringify({ error: 'Download failed: ' + e.message }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
 }
 
 /**

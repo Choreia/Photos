@@ -2571,7 +2571,7 @@ async function proxyDownload(baseUrl){
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({baseUrl:baseUrl,accessToken:accessToken})
   });
-  if(!resp.ok)throw new Error('Download failed: '+resp.status);
+  if(!resp.ok){var e='';try{e=JSON.stringify(await resp.json())}catch(x){}throw new Error('Download failed: '+resp.status+' '+e);}
   return resp.blob();
 }
 
@@ -2687,11 +2687,8 @@ async function startMigration(){
 
       try{
         // Download via proxy (handles CORS + auth)
-        var dlUrl=item.baseUrl;
-        if(mimeType.indexOf('video/')===0){dlUrl+='=dv';}
-        else{dlUrl+='=d';}
-
-        var blob=await proxyDownload(dlUrl);
+        // Worker tries multiple strategies (=w16383-h16383, =d, raw)
+        var blob=await proxyDownload(item.baseUrl);
 
         // Build description
         var desc='📷 Google Photos移行';
